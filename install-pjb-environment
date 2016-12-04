@@ -222,7 +222,7 @@ EOF
     for url in "${emacs_fileurls[@]}" ; do
         curl -O "${url}"
     done
-    
+
     for url in "${emacs_gitrepos[@]}" ; do
         git clone "${url}"
     done
