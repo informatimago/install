@@ -49,6 +49,7 @@ set -e
 #
 # - install https://developer.android.com/studio/index.html
 
+
 repositories=(
     pjb@git.informatimago.com:/srv/git/public/bin
     pjb@git.informatimago.com:/srv/git/public/rc
@@ -79,8 +80,9 @@ ports=(MPlayer abcMIDI abcm2ps ant-contrib
        xskat xsm xstdcmap xwd xwininfo xwud py27-readline mysql57
        mysql57-server mysql_select gcc5 gcc7 gcc_select
        tree boehmgc ghostscript
-       fpc fpc-doc fortune
+       fpc fpc-doc fortune xterm
       )
+
 
 
 # Not processed yet:
@@ -88,7 +90,7 @@ ports=(MPlayer abcMIDI abcm2ps ant-contrib
 
 # files to clone in ~/emacs
 emacs_fileurls=(
-     http://mumble.net/~campbell/emacs/paredit.el
+    http://mumble.net/~campbell/emacs/paredit.el
 )
 
 # git repository to clone in ~/emacs
@@ -111,15 +113,59 @@ emacs_gitrepos=(
 )
 
 
-
-function git-clone-or-pull(){
-    local giturl="$1"
-    local dir="$(basename "$1" .git)"
-    if [ -d "$dir" ] ; then
-        ( cd "$dir" ; git pull )
+function svn-checkout-or-warn(){
+    local svnurl="${1?Missing SVN repository URL as first argument to ${FUNCNAME}}"
+    local dir="${2:-$(basename "${svnurl}" .svn)}"
+    if [ -e "$dir" ] ; then
+        printf '\nWARNING: There is already an item named %s,\n         skipping svn checkout %s\n\n' "${dir}" "${svnurl}"
     else
-        git clone "$giturl"
+        svn checkout "$svnurl" "${dir}"
     fi
+}
+
+function git-clone-or-warn(){
+    local giturl="${1?Missing GIT repository URL as first argument to ${FUNCNAME}}"
+    local dir="${2:-$(basename "${giturl}" .git)}"
+    if [ -e "$dir" ] ; then
+        printf '\nWARNING: There is already an item named %s,\n         skipping git clone %s\n\n' "${dir}" "${giturl}"
+    else
+        git clone "${giturl}" "${dir}"
+    fi
+}
+
+
+function old(){
+    local path="${1?Missing path as first argument of ${FUNCNAME}}"
+    if [ -e "${path}.old" ] ; then
+        local i=0
+        while  [ -e "${path}.${i}.old" ] ; do
+            ((i++))
+        done
+        echo "${path}.${i}.old"
+    else
+        echo "${path}.old"
+    fi
+}
+
+function link(){
+    local src="${1?Missing source as first argument of ${FUNCNAME}}"
+    local dst="${2?Missing destination as second argument of ${FUNCNAME}}"
+    if [ -L "${dst}" ] ; then
+        rm "${dst}"
+    elif [[ -e "${dst}" ]]; then
+        mv "${dst}" "$(old "${dst}")"
+    fi
+    ln -sf "${src}" "${dst}"
+}
+
+
+function SGR () {
+    # SELECT GRAPHIC RENDITION
+
+    echo -n "[$(semicolon='';res='';for arg in $@;do res=${res}${semicolon}${arg};semicolon=';';done;echo -n ${res})m"
+}
+function normal(){
+    SGR 0
 }
 
 
@@ -134,15 +180,11 @@ function install_pjb_environment(){
     mkdir -p src/public
     cd src/public
     for repo in "${repositories[@]}" ; do
-	local name="$(basename "${repo}")"
-        if [[ ! -x "${name}" ]] ; then
-	    git clone "${repo}"
-	else
-	    printf 'WARNING: item already exists: %s/%s\n         for %s\n' "$(pwd)" "${name}" "${repo}"
-	fi
+	    git-clone-or-pull "${repo}"
     done
     cd "$HOME"
-    ln -sf src/public/bin src/public/rc .
+    link src/public/bin bin
+    link src/public/rc  rc
     cd rc
     make symlinks
     cd $HOME ; source .bashrc
@@ -169,11 +211,9 @@ function install_emacs_from_sources(){
     tar zxf "${name}"
     cd "$(basename "${name}" .tar.gz)"
     ./configure --prefix=/usr/local \
-		--with-x --without-ns \
-	&& make && make install
+		        --with-x --without-ns \
+	    && make && make install
 }
-
-
 
 
 function install_ccl_from_sources(){
@@ -187,12 +227,12 @@ function install_ccl_from_sources(){
     esac
     version="$(svn ls http://svn.clozure.com/publicsvn/openmcl/release|sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n|tail -1)"
     cd /usr/local/src
-    svn co "http://svn.clozure.com/publicsvn/openmcl/release/${version}${sys}${pro}/ccl" "ccl-${version%/}"
-    ln -s "ccl-${version%/}" ccl
+    svn-checkout-or-warn "http://svn.clozure.com/publicsvn/openmcl/release/${version}${sys}${pro}/ccl" "ccl-${version%/}"
+    link "ccl-${version%/}" ccl
     cd /usr/local/bin
-    ln -s ../src/ccl/scripts/ccl ccl32
-    ln -s ../src/ccl/scripts/ccl64 ccl64
-    ln -s ccl64 ccl
+    link ../src/ccl/scripts/ccl ccl32
+    link ../src/ccl/scripts/ccl64 ccl64
+    link ccl64 ccl
 }
 
 
@@ -255,7 +295,7 @@ EOF
     done
 
     for url in "${emacs_gitrepos[@]}" ; do
-        git clone "${url}"
+        git-clone-or-pull "${url}"
     done
 
     # cd "$HOME"
@@ -315,13 +355,12 @@ function install_macports(){
 function install_ports(){
 
     sudo port selfupdate
-    sudo port upgrade outdated
-
-    sudo port install xorg-server
-    sudo port install xorg-libXt +flat_namespace.
+    sudo port upgrade outdated                     ; normal
+    sudo port install xorg-server                  ; normal
+    sudo port install xorg-libXt +flat_namespace   ; normal
 
     for port in  "${ports[@]}" ; do
-	sudo port install "${port}"
+	    sudo port install "${port}"                ; normal
     done
 
     sudo port uninstall inactive      # remove the inactive ports.
@@ -332,6 +371,7 @@ function install_ports(){
     sudo port select --set python  python33
     sudo port select --set python3 python33
     sudo port select --set pip     pip33
+    normal
 
     sudo launchctl load -w /Library/LaunchDaemons/org.freedesktop.dbus-system.plist
     launchctl load -w /Library/LaunchDaemons/org.freedesktop.dbus-system.plist
@@ -353,7 +393,7 @@ function install_all(){
 
     case "$(uname)" in
     (Darwin)
-	install_emacsformacosx
+	    install_emacsformacosx
         install_macports
         install_ports
         ;;
