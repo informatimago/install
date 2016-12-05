@@ -29,7 +29,7 @@ ports=(MPlayer abcMIDI abcm2ps ant-contrib
        apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0
        docbook-xsl ecl enscript ffcall fluidsynth fop gawk gcl gdb giflib
        gnupg gnutar gradle graphviz gsed libconfig-hr libevent libiconv
-       lisp-hyperspec lynx mercurial mmv multimarkdown mysql mysql-server
+       lisp-hyperspec lynx mercurial mmv multimarkdown 
        ncftp ninja optipng pandoc pngcheck pngcrush pngpp port_cutleaves
        portmidi pstree py-pdfrw py27-pip py27-sphinx py33-docutils
        py33-pip ragel rlwrap rst2pdf sbcl sitecopy texlive-bibtex-extra
@@ -38,19 +38,20 @@ ports=(MPlayer abcMIDI abcm2ps ant-contrib
        texlive-lang-arabic texlive-latex texlive-latex-extra
        texlive-latex-recommended texlive-music texlive-omega
        texlive-pstricks texlive-publishers texlive-science tiemu3
-       umbrello unrar vineserver w3m wget x11perf xauth xcalc xcb
+       umbrello unrar w3m wget x11perf xauth xcalc xcb
        xclipboard xclock xcompmgr xconsole xcursorgen xditview xdm
        xdotool xdpyinfo xedit xev xeyes xfd xfig xfontsel xforms xfs
        xfsinfo xgamma xgc xhost xinit xkeyboard-config xkill xload xlogo
-       xlsatoms xlsclients xlsfonts xmag xman xmessage xmh xmlto xmms
+       xlsatoms xlsclients xlsfonts xmag xman xmessage xmh xmlto xmms2
        xmodmap xmore xorg-scripts xpdf xpdf-cyrillic xplot xpr xprop
        xrandr xrefresh xscope xscreensaver xsetmode xsetpointer xsetroot
        xskat xsm xstdcmap xwd xwininfo xwud py27-readline mysql57
-       mysql57-server mysql_select gcc5 gcc7 gcc_select
+       mysql57-server mysql_select gcc5 gcc_select
        tree boehmgc ghostscript
        fpc fpc-doc fortune
       )
 
+ports_osx_10_11=( vineserver )
 
 # Not processed yet:
 # ------------------
@@ -282,27 +283,31 @@ function install_macports(){
 
 
 function install_ports(){
+    # run as sudo.
+    export "PATH=/opt/local/bin:$PATH"
+    
+    port selfupdate 
+    port upgrade outdated || true
 
-    sudo port selfupdate
-    sudo port upgrade outdated
-
-    sudo port install xorg-server
-    sudo port install xorg-libXt +flat_namespace.
+    port install xorg-server
+    port install xorg-libXt +flat_namespace
 
     for port in  "${ports[@]}" ; do
-	sudo port install "${port}"
+	port install "${port}"
     done
 
-    sudo port uninstall inactive      # remove the inactive ports.
-    sudo port clean --all uninstalled # remove the non-installed distfiles
+    port uninstall inactive      # remove the inactive ports.
+    port clean --all uninstalled # remove the non-installed distfiles
 
-    sudo port select --set sphinx py27-sphinx
+    port select --set sphinx py27-sphinx
 
-    sudo port select --set python  python33
-    sudo port select --set python3 python33
-    sudo port select --set pip     pip33
+    port select --set python  python33
+    port select --set python3 python33
+    port select --set pip     pip33
+    launchctl load -w /Library/LaunchDaemons/org.freedesktop.dbus-system.plist
+}
 
-    sudo launchctl load -w /Library/LaunchDaemons/org.freedesktop.dbus-system.plist
+function post_install_ports(){
     launchctl load -w /Library/LaunchDaemons/org.freedesktop.dbus-system.plist
     launchctl load -w /Library/LaunchAgents/org.freedesktop.dbus-session.plist
     launchctl load -w /Library/LaunchAgents/org.macports.kdecache.plist
@@ -319,12 +324,14 @@ function install_all(){
 
     install_pjb_environment
     source "$HOME/.bashrc"
-
+   
     case "$(uname)" in
     (Darwin)
 	install_emacsformacosx
-        install_macports
-        install_ports
+        install_macports 
+	export "PATH=/opt/local/bin:$PATH"
+	sudo "$0" --install-ports
+	post_install_ports
         ;;
     esac
 
@@ -333,8 +340,27 @@ function install_all(){
 }
 
 
+function usage(){
+    local pname="$1"
+    printf '%s usage:\n\n\t%s [--install-ports]\n\n' "${pname}" "${pname}"
+}
+
+
 function main(){
-    echo Use it manually for now.
+    for arg ; do
+	case "${arg}" in
+	    (--install-ports)
+		install_ports
+		exit 0
+		;;
+	    (*)
+		printf 'Invalid option %s\n' "${arg}"
+		usage "$(basename "$0")"
+		exit 1
+		;;
+	esac
+    done
+    install_all
     exit 0
 }
 
