@@ -64,17 +64,17 @@ debian_packages=(
     git mercurial subversion
     sitecopy w3m
     rst2pdf pandoc texlive
-    umbrello unrar 
+    umbrello unrar
     ncftp wget
 
     x11-apps   x11-xserver-utils   x11-xfs-utils
     xauth xcb xcompmgr xdm xdotool xfig xinit xmlto
     xmms2 xpdf xplot xscreensaver xskat  xterm
-    
+
     mysql-server
-    
-    fortune-mod 
-    
+
+    fortune-mod
+
     libffcall1-dev
 )
 
