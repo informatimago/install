@@ -77,7 +77,7 @@ debian_packages=(
 
     fortune-mod
 
-    libffcall1-dev
+    libffcall1-dev libgif-dev giflib-tools libncurses5-dev libtinfo-dev
 )
 
 
@@ -183,6 +183,30 @@ function git-clone-or-warn(){
 }
 
 
+function uncompress(){
+    local archive="$1"
+    local dir="$2"
+    case "${archive}" in
+    (*.tar.bz2)
+        rm -rf  "${dir}"
+        tar jxf "${archive}"
+        ;;
+    (*.tar.gz|*.tgz)
+        rm -rf  "${dir}"
+        tar zxf "${archive}"
+        ;;
+    (*.zip)
+        rm -rf  "${dir}"
+        unzip "${archive}"
+        ;;
+    (*)
+        printe "Unknown archive type: ${archive}"
+        exit 1
+        ;;
+    esac
+}
+
+
 function old(){
     local path="${1?Missing path as first argument of ${FUNCNAME}}"
     if [ -e "${path}.old" ] ; then
@@ -257,7 +281,12 @@ function install_pjb_environment(){
 #-----------------------------------------------------------------------
 
 function prepare_usr_local(){
-    sudo mkdir -p "${PREFIX}"/{bin,sbin,src,share,etc,lib,libexec,include,info,man}
+    sudo mkdir -p "${PREFIX}"/{bin,sbin,src,share/emacs/site-lisp,etc,lib,libexec,include,info,man}
+    sudo cat>"${PREFIX}"/share/emacs/site-lisp/subdirs.el<<EOF
+;; -*- no-byte-compile: t -*-
+(if (fboundp (quote normal-top-level-add-subdirs-to-load-path))
+   (normal-top-level-add-subdirs-to-load-path))
+EOF
     sudo chown "$USER" "${PREFIX}"/* "${PREFIX}"
 }
 
@@ -268,14 +297,13 @@ function install_emacs_from_sources(){
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
-        local logbase;logbase=
 	    if [[ ! -e "${tarball}" ]] ; then
             download "${url}"
             download "${url}.sig"
 	    fi
-        tar zxf "${tarball}"
+        uncompress "${tarball}" "${dir}"
         cd "${dir}"
-        compile "${dir}" "$(pwd)/${dir}" --with-x --without-ns
+        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no
     fi
 }
 
@@ -315,7 +343,7 @@ function install_clisp_from_sources(){
         hg clone "${url}" "${dir}"
     fi
     cd "${dir}"
-    printi 'Configuring clisp'
+    printi "Configuring ${dir}"
     ./configure \
         --prefix="${PREFIX}" \
         --with-threads=POSIX_THREADS \
@@ -331,11 +359,11 @@ function install_clisp_from_sources(){
         --with-module=rawsock \
         --with-module=zlib \
         --hyperspec="${hyperspec}" \
-        build                                          > "${logbase}".configure.log      2>&1 \
-        && ( printi 'Making clisp'     ; make          > "${logbase}".make.log           2>&1 ) \
+        build                                           > "${logbase}".configure.log      2>&1   \
+        && ( printi "Making ${dir}"     ; make          > "${logbase}".make.log           2>&1 ) \
         && ( cp build/libgnu.a  build/bindings/glibc/ ) \
-        && ( printi 'Installing clisp' ; make install  > "${logbase}".make-install.log   2>&1 ) \
-        ||   printe 'Compiling clisp failed; check the logs.'
+        && ( printi "Installing ${dir}" ; make install  > "${logbase}".make-install.log   2>&1 ) \
+        ||   printe "Compiling ${dir} failed; check the logs."
 }
 
 
@@ -351,15 +379,15 @@ function install_abcl_from_sources(){
     cd "${PREFIX}"/src/
     local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
-    local dirname;dirname="$(basename "${tarball}" .tar.gz)"
+    local dir;dir="$(basename "${tarball}" .tar.gz)"
     local jdkhome;jdkhome="$(java_home)"
-    local logbase;logbase="$(pwd)/${dirname}"
+    local logbase;logbase="$(pwd)/${dir}"
     export JAVA_HOME="${jdkhome}"
     if [[ ! -e  "${tarball}" ]] ; then
-	download "${url}"
+	    download "${url}"
     fi
-    tar zxvf "${tarball}"
-    cd "${dirname}"
+    uncompress "${tarball}" "${dir}"
+    cd "${dir}"
     case "$(uname)" in
 	(Darwin)
 	    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' <customizations.lisp.in >customizations.lisp
@@ -383,7 +411,7 @@ function install_ecl_from_sources(){
     local logbase;logbase="$(pwd)/${dir}"
     git-clone-or-warn "${url}"
     cd "${dir}"
-    compile "${dir}" "$(pwd)/${dir}"
+    compile "${dir}" "$(pwd)"
 }
 
 function install_emacs_w3m_from_sources(){
@@ -401,7 +429,7 @@ function install_emacs_w3m_from_sources(){
     fi
     cd "${dir}"
     autoconf
-    compile "${dir}" "$(pwd)/${dir}"
+    compile "${dir}" "$(pwd)"
 }
 
 function install_usr_local_stuff(){
@@ -566,22 +594,22 @@ function install_all(){
     case "$(uname)" in
 	(Linux)
 	    if [ -r /etc/os-release ] ; then
-		if grep -q -s -e '^ID=debian' /etc/os-release ; then
-		    # Debian
-		    install_apt_packages "${debian_packages[@]}"
-		elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
-		    # Debian
-		    install_apt_packages "${ubuntu_packages[@]}"
-		fi
+		    if grep -q -s -e '^ID=debian' /etc/os-release ; then
+		        # Debian
+		        install_apt_packages "${debian_packages[@]}"
+		    elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
+		        # Debian
+		        install_apt_packages "${ubuntu_packages[@]}"
+		    fi
 	    fi
-	;;
+	    ;;
 	(Darwin)
-            install_emacsformacosx
-            install_macports
+        install_emacsformacosx
+        install_macports
 	    export "PATH=/opt/local/bin:$PATH"
 	    sudo "$0" --install-ports
 	    post_install_ports
-            ;;
+        ;;
     esac
 
     install_pjb_environment
@@ -601,21 +629,21 @@ function usage(){
 
 function main(){
     for arg ; do
-	case "${arg}" in
+	    case "${arg}" in
 	    (--install-ports)
-		install_ports
-		exit 0
-		;;
+		    install_ports
+		    exit 0
+		    ;;
 	    (*)
-		printf 'Invalid option %s\n' "${arg}"
-		usage "$(basename "$0")"
-		exit 1
-		;;
-	esac
+		    printf 'Invalid option %s\n' "${arg}"
+		    usage "$(basename "$0")"
+		    exit 1
+		    ;;
+	    esac
     done
     install_all
     exit 0
 }
 
 
-main "$@"
+#main "$@"
