@@ -62,12 +62,13 @@ debian_packages=(
     mplayer2
     mmv psmisc  tree  ghostscript
     sbcl fpc default-jdk
-    git mercurial subversion
+    git mercurial subversion cvs
     sitecopy w3m
     rst2pdf pandoc texlive
     umbrello unrar
     ncftp wget
 
+    autoconf
     x11-apps   x11-xserver-utils   x11-xfs-utils
     xauth xcb xcompmgr xdm xdotool xfig xinit xmlto
     xmms2 xpdf xplot xscreensaver xskat  xterm
@@ -83,7 +84,7 @@ debian_packages=(
 ubuntu_packages=( "${debian_packages[@]}" )
 
 ports=(MPlayer abcMIDI abcm2ps ant-contrib
-       apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0
+       apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0 cvs
        docbook-xsl ecl enscript ffcall fluidsynth fop gawk gcl gdb giflib
        gnupg gnutar gradle graphviz gsed libconfig-hr libevent libiconv
        lisp-hyperspec lynx mercurial mmv multimarkdown
@@ -389,7 +390,11 @@ function install_emacs_w3m_from_sources(){
     cd "${PREFIX}"/src
     local url=':pserver:anonymous@cvs.namazu.org:2401/storage/cvsroot'
     local dir='emacs-w3m'
-    if [[ ! -d emacs-w3m ]] ; then
+    if [[  -d "${dir}" ]] ; then
+        printw 'There is already an item named ' "${dir}" ','
+        printw '         skipping cvs checkout ' "${svnurl}"
+    else
+        printi 'Checking out ' "${svnurl}"
         printf '/1 %s A\n' >> ~/.cvspass
         sort -u -o ~/.cvspass ~/.cvspass
         cvs -d "${url}" co "${dir}"
