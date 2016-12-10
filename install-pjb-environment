@@ -83,6 +83,7 @@ debian_packages=(
 
 ubuntu_packages=( "${debian_packages[@]}" )
 
+
 ports=(MPlayer abcMIDI abcm2ps ant-contrib
        apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0 cvs
        docbook-xsl ecl enscript ffcall fluidsynth fop gawk gcl gdb giflib
@@ -109,16 +110,15 @@ ports=(MPlayer abcMIDI abcm2ps ant-contrib
        fpc fpc-doc fortune xterm
       )
 
+
 ports_osx_10_11=( vineserver )
 
-
-# Not processed yet:
-# ------------------
 
 # files to clone in ~/emacs
 emacs_fileurls=(
     http://mumble.net/~campbell/emacs/paredit.el
 )
+
 
 # git repository to clone in ~/emacs
 emacs_gitrepos=(
@@ -144,19 +144,23 @@ function printe(){
     printf '%-8s: %s\n' ERROR   "$*" >&2
 }
 
+
 function printw(){
     printf '%-8s: %s\n' WARNING "$*" >&2
 }
 
+
 function printi(){
     printf '%-8s: %s\n' INFO    "$*" >&2
 }
+
 
 function download(){
     local url="${1?Missing URL as first argument of ${FUNCNAME}}"
     printi 'Downloading ' "${url}"
     curl -O "${url}"
 }
+
 
 function svn-checkout-or-warn(){
     local svnurl="${1?Missing SVN repository URL as first argument to ${FUNCNAME}}"
@@ -169,6 +173,7 @@ function svn-checkout-or-warn(){
         svn checkout "${svnurl}" "${dir}"
     fi
 }
+
 
 function git-clone-or-warn(){
     local giturl="${1?Missing GIT repository URL as first argument to ${FUNCNAME}}"
@@ -220,6 +225,7 @@ function old(){
     fi
 }
 
+
 function link(){
     local src="${1?Missing source as first argument of ${FUNCNAME}}"
     local dst="${2?Missing destination as second argument of ${FUNCNAME}}"
@@ -230,6 +236,7 @@ function link(){
     fi
     ln -sf "${src}" "${dst}"
 }
+
 
 function compile(){
     local name="$1" ; shift
@@ -246,6 +253,7 @@ function SGR () {
     # SELECT GRAPHIC RENDITION
     echo -n "[$(semicolon='';res='';for arg in $@;do res=${res}${semicolon}${arg};semicolon=';';done;echo -n ${res})m"
 }
+
 
 function normal(){
     SGR 0
@@ -332,7 +340,6 @@ function install_ccl_from_sources(){
 }
 
 
-
 function install_clisp_from_sources(){
     cd "${PREFIX}"/src/
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
@@ -374,6 +381,7 @@ function java_home(){
     esac
 }
 
+
 function install_abcl_from_sources(){
     # Assume ccl is available.
     cd "${PREFIX}"/src/
@@ -404,6 +412,7 @@ function install_abcl_from_sources(){
         ||   printe 'Compiling abncl failed; check the logs.'
 }
 
+
 function install_ecl_from_sources(){
     cd "${PREFIX}"/src/
     local url='https://gitlab.com/embeddable-common-lisp/ecl.git'
@@ -413,6 +422,7 @@ function install_ecl_from_sources(){
     cd "${dir}"
     compile "${dir}" "$(pwd)"
 }
+
 
 function install_emacs_w3m_from_sources(){
     cd "${PREFIX}"/src
@@ -492,6 +502,7 @@ EOF
 
 }
 
+
 #-----------------------------------------------------------------------
 # Darwin: EmacsForMacOSX
 #-----------------------------------------------------------------------
@@ -521,6 +532,7 @@ function install_apt_packages(){
     # --install-suggested
     sudo apt-get install --assume-yes --fix-broken "$@"
 }
+
 
 #-----------------------------------------------------------------------
 # Darwin: MacPorts
@@ -646,4 +658,4 @@ function main(){
 }
 
 
-#main "$@"
+main "$@"
