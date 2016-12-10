@@ -49,6 +49,7 @@ set -e
 #
 # - install https://developer.android.com/studio/index.html
 
+PREFIX=/usr/local
 
 repositories=(
     pjb@git.informatimago.com:/srv/git/public/bin
@@ -156,7 +157,6 @@ function download(){
     curl -O "${url}"
 }
 
-
 function svn-checkout-or-warn(){
     local svnurl="${1?Missing SVN repository URL as first argument to ${FUNCNAME}}"
     local dir="${2:-$(basename "${svnurl}" .svn)}"
@@ -206,6 +206,16 @@ function link(){
     ln -sf "${src}" "${dst}"
 }
 
+function compile(){
+    local name="$1" ; shift
+    local logbase="$1" ; shift
+    printi "Configuring ${name}"
+    ./configure --prefix="${PREFIX}" "$@"                > "${logbase}".configure.log      2>&1   \
+        && ( printi "Making ${name}"     ; make          > "${logbase}".make.log           2>&1 ) \
+        && ( printi "Installing ${name}" ; make install  > "${logbase}".make-install.log   2>&1 ) \
+        ||   printe "Compiling ${name} failed; check the logs."
+}
+
 
 function SGR () {
     # SELECT GRAPHIC RENDITION
@@ -242,35 +252,29 @@ function install_pjb_environment(){
 
 
 #-----------------------------------------------------------------------
-# /usr/local stuff
+# "/usr/local" stuff
 #-----------------------------------------------------------------------
 
 function prepare_usr_local(){
-    sudo mkdir -p /usr/local/{bin,sbin,src,share,etc,lib,libexec,include,info,man}
-    sudo chown "$USER" /usr/local/* /usr/local
+    sudo mkdir -p "${PREFIX}"/{bin,sbin,src,share,etc,lib,libexec,include,info,man}
+    sudo chown "$USER" "${PREFIX}"/* "${PREFIX}"
 }
 
 
 function install_emacs_from_sources(){
-    if [ ! -x /usr/local/bin/emacs ] ; then
-        cd /usr/local/src
+    if [ ! -x "${PREFIX}"/bin/emacs ] ; then
+        cd "${PREFIX}"/src
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
-        local logbase;logbase="$(pwd)/${dir}"
-	if [[ ! -e "${tarball}" ]] ; then
+        local logbase;logbase=
+	    if [[ ! -e "${tarball}" ]] ; then
             download "${url}"
             download "${url}.sig"
-	fi
+	    fi
         tar zxf "${tarball}"
         cd "${dir}"
-        printi 'Configuring emacs'
-        ./configure --prefix=/usr/local \
-		            --with-x --without-ns \
-                    > "${logbase}".configure.log      2>&1 \
-            && ( printi 'Making emacs'     ; make          > "${logbase}".make.log           2>&1 ) \
-            && ( printi 'Installing emacs' ; make install  > "${logbase}".make-install.log   2>&1 ) \
-            ||   printe 'Compiling emacs failed; check the logs.'
+        compile "${dir}" "$(pwd)/${dir}" --with-x --without-ns
     fi
 }
 
@@ -287,12 +291,12 @@ function install_ccl_from_sources(){
     esac
     version="$(svn ls http://svn.clozure.com/publicsvn/openmcl/release|sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n|tail -1)"
     dir="ccl-${version%/}"
-    cd /usr/local/src
+    cd "${PREFIX}"/src
     if [ ! -e "${dir}" ] ; then
         svn-checkout-or-warn "http://svn.clozure.com/publicsvn/openmcl/release/${version}${sys}${pro}/ccl" "${dir}"
     fi
     link "${dir}" ccl
-    cd /usr/local/bin
+    cd "${PREFIX}"/bin
     link ../src/ccl/scripts/ccl ccl32
     link ../src/ccl/scripts/ccl64 ccl64
     link ccl64 ccl
@@ -301,7 +305,7 @@ function install_ccl_from_sources(){
 
 
 function install_clisp_from_sources(){
-    cd /usr/local/src/
+    cd "${PREFIX}"/src/
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     local url='http://hg.code.sf.net/p/clisp/clisp'
     local dir='clisp'
@@ -312,7 +316,7 @@ function install_clisp_from_sources(){
     cd "${dir}"
     printi 'Configuring clisp'
     ./configure \
-        --prefix=/usr/local \
+        --prefix="${PREFIX}" \
         --with-threads=POSIX_THREADS \
         --with-module=berkeley-db \
         --with-module=bindings/glibc \
@@ -343,7 +347,7 @@ function java_home(){
 
 function install_abcl_from_sources(){
     # Assume ccl is available.
-    cd /usr/local/src/
+    cd "${PREFIX}"/src/
     local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
     local dirname;dirname="$(basename "${tarball}" .tar.gz)"
@@ -367,26 +371,37 @@ function install_abcl_from_sources(){
     chmod 755 ./build-from-lisp.bash
     printi 'Building abcl from lisp with ccl'
     ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1 \
-        && ( printi 'Installing abcl' ; install -m 755 abcl /usr/local/bin/  > "${logbase}".make-install.log   2>&1 ) \
+        && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe 'Compiling abncl failed; check the logs.'
 }
 
 function install_ecl_from_sources(){
+    cd "${PREFIX}"/src/
     local url='https://gitlab.com/embeddable-common-lisp/ecl.git'
     local dir='ecl'
-    cd /usr/local/src/
+    local logbase;logbase="$(pwd)/${dir}"
     git-clone-or-warn "${url}"
     cd "${dir}"
-    printi 'Configuring ecl'
-    ./configure --prefix=/usr/local                    > "${logbase}".configure.log      2>&1 \
-        && ( printi 'Making ecl'     ; make          > "${logbase}".make.log           2>&1 ) \
-        && ( printi 'Installing ecl' ; make install  > "${logbase}".make-install.log   2>&1 ) \
-        ||   printe 'Compiling ecl failed; check the logs.'
+    compile "${dir}" "$(pwd)/${dir}"
+}
+
+function install_emacs_w3m_from_sources(){
+    cd "${PREFIX}"/src
+    local url=':pserver:anonymous@cvs.namazu.org:2401/storage/cvsroot'
+    local dir='emacs-w3m'
+    if [[ ! -d emacs-w3m ]] ; then
+        printf '/1 %s A\n' >> ~/.cvspass
+        sort -u -o ~/.cvspass ~/.cvspass
+        cvs -d "${url}" co "${dir}"
+    fi
+    cd "${dir}"
+    autoconf
+    compile "${dir}" "$(pwd)/${dir}"
 }
 
 function install_usr_local_stuff(){
     prepare_usr_local
-    for component in emacs ccl clisp abcl ecl  ; do
+    for component in emacs ccl clisp abcl ecl emacs_w3m ; do
         "install_${component}_from_sources"
     done
 }
@@ -598,4 +613,4 @@ function main(){
 }
 
 
-# main "$@"
+main "$@"
