@@ -566,10 +566,9 @@ function install_all(){
 
     install_pjb_environment
     source "$HOME/.bashrc"
-
     install_usr_local_stuff
+    install_home_emacs
     install_quicklisp
-
     printi 'Installation completed.'
 }
 
@@ -599,4 +598,4 @@ function main(){
 }
 
 
-main "$@"
+# main "$@"
