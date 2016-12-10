@@ -78,6 +78,10 @@ debian_packages=(
     fortune-mod
 
     libffcall1-dev libgif-dev giflib-tools libncurses5-dev libtinfo-dev
+    libreadline6-dev libsigsegv-dev
+    libdb5.3-dev libgdbm-dev libglade2-dev
+    postgresql postgresql-client postgresql-doc
+    postgresql-server-dev-all
 )
 
 
@@ -350,7 +354,10 @@ function install_clisp_from_sources(){
         hg clone "${url}" "${dir}"
     fi
     cd "${dir}"
+    rm -rf build
     printi "Configuring ${dir}"
+    EDITOR=emacsclient \
+    ORGANIZATION=informatimago \
     ./configure \
         --prefix="${PREFIX}" \
         --with-threads=POSIX_THREADS \
@@ -366,10 +373,10 @@ function install_clisp_from_sources(){
         --with-module=rawsock \
         --with-module=zlib \
         --hyperspec="${hyperspec}" \
-        build                                           > "${logbase}".configure.log      2>&1   \
-        && ( printi "Making ${dir}"     ; make          > "${logbase}".make.log           2>&1 ) \
+        build                                                    > "${logbase}".configure.log      2>&1   \
+        && ( printi "Making ${dir}"     ; make -C build          > "${logbase}".make.log           2>&1 ) \
         && ( cp build/libgnu.a  build/bindings/glibc/ ) \
-        && ( printi "Installing ${dir}" ; make install  > "${logbase}".make-install.log   2>&1 ) \
+        && ( printi "Installing ${dir}" ; make -C build install  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe "Compiling ${dir} failed; check the logs."
 }
 
@@ -658,4 +665,4 @@ function main(){
 }
 
 
-main "$@"
+#main "$@"
