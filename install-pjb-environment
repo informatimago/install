@@ -57,6 +57,30 @@ repositories=(
     pjb@git.informatimago.com:/srv/git/public/emacs
 )
 
+debian_packages=(
+    mplayer2
+    mmv psmisc  tree  ghostscript
+    sbcl fpc default-jdk
+    git mercurial subversion
+    sitecopy w3m
+    rst2pdf pandoc texlive
+    umbrello unrar 
+    ncftp wget
+
+    x11-apps   x11-xserver-utils   x11-xfs-utils
+    xauth xcb xcompmgr xdm xdotool xfig xinit xmlto
+    xmms2 xpdf xplot xscreensaver xskat  xterm
+    
+    mysql-server
+    
+    fortune-mod 
+    
+    libffcall1-dev
+)
+
+
+ubuntu_packages=( "${debian_packages[@]}" )
+
 ports=(MPlayer abcMIDI abcm2ps ant-contrib
        apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0
        docbook-xsl ecl enscript ffcall fluidsynth fop gawk gcl gdb giflib
@@ -234,8 +258,10 @@ function install_emacs_from_sources(){
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
         local logbase;logbase="$(pwd)/${dir}"
-        download "${url}"
-        download "${url}.sig"
+	if [[ ! -e "${tarball}" ]] ; then
+            download "${url}"
+            download "${url}.sig"
+	fi
         tar zxf "${tarball}"
         cd "${dir}"
         printi 'Configuring emacs'
@@ -308,18 +334,35 @@ function install_clisp_from_sources(){
 }
 
 
+function java_home(){
+    case "$(uname)" in
+	(Darwin) echo /usr/libexec/java_home            ;;
+	(*)      echo /usr/lib/jvm/java-7-openjdk-amd64 ;;
+    esac
+}
+
 function install_abcl_from_sources(){
     # Assume ccl is available.
+    cd /usr/local/src/
     local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
     local dirname;dirname="$(basename "${tarball}" .tar.gz)"
-    local jdkhome;jdkhome="$(/usr/libexec/java_home)"
+    local jdkhome;jdkhome="$(java_home)"
     local logbase;logbase="$(pwd)/${dirname}"
-    cd /usr/local/src/
-    # download "${url}"
-    # tar zxvf "${tarball}"
+    export JAVA_HOME="${jdkhome}"
+    if [[ ! -e  "${tarball}" ]] ; then
+	download "${url}"
+    fi
+    tar zxvf "${tarball}"
     cd "${dirname}"
-    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' <customizations.lisp.in >customizations.lisp
+    case "$(uname)" in
+	(Darwin)
+	    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' <customizations.lisp.in >customizations.lisp
+	    ;;
+	(*)
+	    sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' -e 's/fastjar/jar/' <customizations.lisp.in >customizations.lisp
+	    ;;
+    esac
     cat customizations.lisp
     chmod 755 ./build-from-lisp.bash
     printi 'Building abcl from lisp with ccl'
@@ -358,7 +401,7 @@ function install_quicklisp(){
     local file="$(basename "${url}")"
     download "${url}"
     download "${url}".asc
-    gpg --verify "${file}".asc "${file}"
+    gpg --verify "${file}".asc "${file}" || true
     printi 'Installing quicklisp'
     ccl --no-init <<EOF
 (load "quicklisp.lisp")
@@ -418,6 +461,18 @@ function install_emacsformacosx(){
     rmdir "${mnt}"
 }
 
+
+#-----------------------------------------------------------------------
+# Debian: apt
+#-----------------------------------------------------------------------
+
+function install_apt_packages(){
+    # for package in "${debian_packages[@]}" ; do
+    # 	sudo apt-get install "${package}"
+    # done
+    # --install-suggested
+    sudo apt-get install --assume-yes --fix-broken "$@"
+}
 
 #-----------------------------------------------------------------------
 # Darwin: MacPorts
@@ -488,21 +543,34 @@ function post_install_ports(){
 
 function install_all(){
 
-    install_pjb_environment
-    source "$HOME/.bashrc"
-
     case "$(uname)" in
-    (Darwin)
-        install_emacsformacosx
-        install_macports
+	(Linux)
+	    if [ -r /etc/os-release ] ; then
+		if grep -q -s -e '^ID=debian' /etc/os-release ; then
+		    # Debian
+		    install_apt_packages "${debian_packages[@]}"
+		elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
+		    # Debian
+		    install_apt_packages "${ubuntu_packages[@]}"
+		fi
+	    fi
+	;;
+	(Darwin)
+            install_emacsformacosx
+            install_macports
 	    export "PATH=/opt/local/bin:$PATH"
 	    sudo "$0" --install-ports
 	    post_install_ports
-        ;;
+            ;;
     esac
+
+    install_pjb_environment
+    source "$HOME/.bashrc"
 
     install_usr_local_stuff
     install_quicklisp
+
+    printi 'Installation completed.'
 }
 
 
