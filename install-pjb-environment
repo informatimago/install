@@ -90,7 +90,7 @@ ubuntu_packages=( "${debian_packages[@]}" )
 
 ports=(MPlayer abcMIDI abcm2ps ant-contrib
        apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0 cvs
-       docbook-xsl ecl enscript ffcall fluidsynth fop gawk gcl gdb giflib
+       docbook-xsl ecl enscript fluidsynth fop gawk gcl gdb giflib
        gnupg gnutar gradle graphviz gsed libconfig-hr libevent libiconv
        lisp-hyperspec lynx mercurial mmv multimarkdown
        ncftp ninja optipng pandoc pngcheck pngcrush pngpp port_cutleaves
@@ -109,9 +109,11 @@ ports=(MPlayer abcMIDI abcm2ps ant-contrib
        xmodmap xmore xorg-scripts xpdf xpdf-cyrillic xplot xpr xprop
        xrandr xrefresh xscope xscreensaver xsetmode xsetpointer xsetroot
        xskat xsm xstdcmap xwd xwininfo xwud py27-readline mysql57
-       mysql57-server mysql_select gcc5 gcc_select
+       mysql57-server mysql_select
+       gcc5 gcc6 gcc_select
        tree boehmgc ghostscript
        fpc fpc-doc fortune xterm
+       ffcall libiconv readline
       )
 
 
@@ -346,6 +348,7 @@ function install_ccl_from_sources(){
 
 function install_clisp_from_sources(){
     cd "${PREFIX}"/src/
+    local do_ffi=false
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     local url='http://hg.code.sf.net/p/clisp/clisp'
     local dir='clisp'
@@ -354,30 +357,60 @@ function install_clisp_from_sources(){
         hg clone "${url}" "${dir}"
     fi
     cd "${dir}"
+    make distclean >/dev/null 2>&1 || true
     rm -rf build
-    printi "Configuring ${dir}"
-    EDITOR=emacsclient \
-    ORGANIZATION=informatimago \
-    ./configure \
-        --prefix="${PREFIX}" \
-        --with-threads=POSIX_THREADS \
-        --with-module=berkeley-db \
-        --with-module=bindings/glibc \
-        --with-module=clx/new-clx \
-        --with-module=dbus \
-        --with-module=gdbm \
-        --with-module=gtk2 \
-        --with-module=pcre \
-        --with-module=postgresql \
-        --with-module=queens \
-        --with-module=rawsock \
-        --with-module=zlib \
-        --hyperspec="${hyperspec}" \
-        build                                                    > "${logbase}".configure.log      2>&1   \
-        && ( printi "Making ${dir}"     ; make -C build          > "${logbase}".make.log           2>&1 ) \
-        && ( cp build/libgnu.a  build/bindings/glibc/ ) \
-        && ( printi "Installing ${dir}" ; make -C build install  > "${logbase}".make-install.log   2>&1 ) \
-        ||   printe "Compiling ${dir} failed; check the logs."
+    local configuration=(
+        --prefix="${PREFIX}"
+
+        --with-threads=POSIX_THREADS
+
+        --with-module=berkeley-db
+        --with-module=clx/new-clx
+        --with-module=gdbm
+        --with-module=pcre
+        --with-module=queens
+        --with-module=rawsock
+
+        --hyperspec="${hyperspec}"
+    )
+    local ffi_modules=(
+        --with-module=bindings/glibc
+        --with-module=dbus
+        --with-module=gtk2
+        --with-module=postgresql
+        --with-module=zlib
+    )
+    local linux_ffi=(
+        --with-ffcall
+    )
+    local darwin_ffi=(
+        --with-ffcall
+        --with-ffcall-prefix=/opt/local
+    )
+    if [[ "$(uname)" = Darwin ]] ; then
+        if $do_ffi false ; then
+            configuration+=( "${darwin_ffi[@]}" "${ffi_modules[@]}" )
+        fi
+    else
+        if $do_ffi false ; then
+            configuration+=( "${linux_ffi[@]}" "${ffi_modules[@]}" )
+        fi
+    fi
+    (
+        export EDITOR=emacsclient
+        export ORGANIZATION=informatimago
+        if [[ "$(uname)" = Darwin ]] ; then
+            export CPPFLAGS=-I/opt/local/include
+            export LDFLAGS=-L/opt/local/lib
+            export LIBS='/opt/local/lib/libcallback.a /opt/local/lib/libavcall.a'
+        fi
+         printi "Configuring ${dir}"
+        ./configure "${configuration[@]}" build                      > "${logbase}".configure.log      2>&1   \
+            && ( printi "Making ${dir}"     ; make -C build          > "${logbase}".make.log           2>&1 ) \
+            && ( cp build/libgnu.a  build/bindings/glibc/ ) \
+            && ( printi "Installing ${dir}" ; make -C build install  > "${logbase}".make-install.log   2>&1 ) \
+            ||   printe "Compiling ${dir} failed; check the logs."
+    )
 }
 
 
@@ -586,11 +619,19 @@ function install_ports(){
     port uninstall inactive      # remove the inactive ports.
     port clean --all uninstalled # remove the non-installed distfiles
 
-    port select --set sphinx py27-sphinx
-    port select --set python  python33
-    port select --set python3 python33
-    port select --set pip     pip33
+    port select --set cython    cython27
+    port select --set gcc       mp-gcc6
+    port select --set llvm      mp-llvm-3.8
+    port select --set mysql     mysql57
+    port select --set nosetests nosetests27
+    port select --set pip       pip33
+    port select --set python    python33
+    port select --set python2   python27
+    port select --set python3   python33
+    port select --set sphinx    py27-sphinx
+
     normal
+
     launchctl load -w /Library/LaunchDaemons/org.freedesktop.dbus-system.plist
 }
 
