@@ -438,18 +438,20 @@ function install_abcl_from_sources(){
     cd "${dir}"
     case "$(uname)" in
 	(Darwin)
-	    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' <customizations.lisp.in >customizations.lisp
+	    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
+            <customizations.lisp.in >customizations.lisp
 	    ;;
 	(*)
-	    sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' -e 's/fastjar/jar/' <customizations.lisp.in >customizations.lisp
+	    sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
+            -e 's/fastjar/jar/' \
+            <customizations.lisp.in >customizations.lisp
 	    ;;
     esac
-    cat customizations.lisp
     chmod 755 ./build-from-lisp.bash
     printi 'Building abcl from lisp with ccl'
     ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1 \
         && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
-        ||   printe 'Compiling abncl failed; check the logs.'
+        ||   printe 'Compiling abcl failed; check the logs.'
 }
 
 
@@ -706,4 +708,4 @@ function main(){
 }
 
 
-#main "$@"
+main "$@"
