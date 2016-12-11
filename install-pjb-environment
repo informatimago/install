@@ -50,7 +50,7 @@ set -e
 # - install https://developer.android.com/studio/index.html
 
 self="$(cd "$(dirname "$0")";pwd -P)/$(basename "$0")"
-
+PREFIX=/usr/local
 
 repositories=(
     pjb@git.informatimago.com:/srv/git/public/bin
@@ -59,8 +59,38 @@ repositories=(
     pjb@git.informatimago.com:/srv/git/public/emacs
 )
 
+debian_packages=(
+    mplayer2
+    mmv psmisc  tree  ghostscript
+    sbcl fpc default-jdk
+    git mercurial subversion cvs
+    sitecopy w3m
+    rst2pdf pandoc texlive
+    umbrello unrar
+    ncftp wget
+
+    autoconf
+    x11-apps   x11-xserver-utils   x11-xfs-utils
+    xauth xcb xcompmgr xdm xdotool xfig xinit xmlto
+    xmms2 xpdf xplot xscreensaver xskat  xterm
+
+    mysql-server
+
+    fortune-mod
+
+    libffcall1-dev libgif-dev giflib-tools libncurses5-dev libtinfo-dev
+    libreadline6-dev libsigsegv-dev
+    libdb5.3-dev libgdbm-dev libglade2-dev
+    postgresql postgresql-client postgresql-doc
+    postgresql-server-dev-all
+)
+
+
+ubuntu_packages=( "${debian_packages[@]}" )
+
+
 ports=(MPlayer abcMIDI abcm2ps ant-contrib
-       apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0
+       apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0 cvs
        docbook-xsl ecl enscript fluidsynth fop gawk gcl gdb giflib
        gnupg gnutar gradle graphviz gsed libconfig-hr libevent libiconv
        lisp-hyperspec lynx mercurial mmv multimarkdown
@@ -80,25 +110,26 @@ ports=(MPlayer abcMIDI abcm2ps ant-contrib
        xmodmap xmore xorg-scripts xpdf xpdf-cyrillic xplot xpr xprop
        xrandr xrefresh xscope xscreensaver xsetmode xsetpointer xsetroot
        xskat xsm xstdcmap xwd xwininfo xwud py27-readline mysql57
-       mysql57-server mysql_select gcc5 gcc_select
+       mysql57-server mysql_select
+       gcc5 gcc6 gcc_select
        tree boehmgc ghostscript
-       fpc fpc-doc fortune xterm ffcall libsigsegv readline
+       fpc fpc-doc fortune xterm
+       ffcall  libsigsegv readline libiconv
       )
+
 
 ports_osx_10_11=( vineserver )
 
-
-# Not processed yet:
-# ------------------
 
 # files to clone in ~/emacs
 emacs_fileurls=(
     http://mumble.net/~campbell/emacs/paredit.el
 )
 
+
 # git repository to clone in ~/emacs
 emacs_gitrepos=(
-    https://code.google.com/p/android-emacs-toolkit/
+    # https://code.google.com/p/android-emacs-toolkit/
     git://github.com/remvee/android-mode.git
     git://github.com/emacs-java/auto-java-complete.git
     https://github.com/defunkt/coffee-mode.git
@@ -120,9 +151,11 @@ function printe(){
     printf '%-8s: %s\n' ERROR   "$*" >&2
 }
 
+
 function printw(){
     printf '%-8s: %s\n' WARNING "$*" >&2
 }
+
 
 function printi(){
     printf '%-8s: %s\n' INFO    "$*" >&2
@@ -135,10 +168,31 @@ function download(){
     curl -O "${url}"
 }
 
+
 function unarchive(){
-    local tarball="${1?Missing tarball as first argument of ${FUNCNAME}}"
-    printi 'Extracting ' "${tarball}"
-    tar zxf "${tarball}"
+    local archive="$1"
+    local dir="$2"
+    case "${archive}" in
+	(*.tar.bz2)
+            rm -rf  "${dir}"
+	    printi 'Extracting ' "${archive}"
+            tar jxf "${archive}"
+            ;;
+	(*.tar.gz|*.tgz)
+            rm -rf  "${dir}"
+	    printi 'Extracting ' "${archive}"
+            tar zxf "${archive}"
+            ;;
+	(*.zip)
+            rm -rf  "${dir}"
+	    printi 'Extracting ' "${archive}"
+            unzip "${archive}"
+            ;;
+	(*)
+            printe "Unknown archive type: ${archive}"
+            exit 1
+            ;;
+    esac
 }
 
 
@@ -153,6 +207,7 @@ function svn-checkout-or-warn(){
         svn checkout "${svnurl}" "${dir}"
     fi
 }
+
 
 function git-clone-or-warn(){
     local giturl="${1?Missing GIT repository URL as first argument to ${FUNCNAME}}"
@@ -180,6 +235,7 @@ function old(){
     fi
 }
 
+
 function link(){
     local src="${1?Missing source as first argument of ${FUNCNAME}}"
     local dst="${2?Missing destination as second argument of ${FUNCNAME}}"
@@ -192,10 +248,22 @@ function link(){
 }
 
 
+function compile(){
+    local name="$1" ; shift
+    local logbase="$1" ; shift
+    printi "Configuring ${name}"
+    ./configure --prefix="${PREFIX}" "$@"                > "${logbase}".configure.log      2>&1   \
+        && ( printi "Making ${name}"     ; make          > "${logbase}".make.log           2>&1 ) \
+        && ( printi "Installing ${name}" ; make install  > "${logbase}".make-install.log   2>&1 ) \
+        ||   printe "Compiling ${name} failed; check the logs."
+}
+
+
 function SGR () {
     # SELECT GRAPHIC RENDITION
     echo -n "[$(semicolon='';res='';for arg in $@;do res=${res}${semicolon}${arg};semicolon=';';done;echo -n ${res})m"
 }
+
 
 function normal(){
     SGR 0
@@ -213,7 +281,7 @@ function install_pjb_environment(){
     mkdir -p src/public
     cd src/public
     for repo in "${repositories[@]}" ; do
-	    git-clone-or-warn "${repo}"
+	git-clone-or-warn "${repo}"
     done
     cd "$HOME"
     link src/public/bin bin
@@ -227,33 +295,33 @@ function install_pjb_environment(){
 
 
 #-----------------------------------------------------------------------
-# /usr/local stuff
+# "/usr/local" stuff
 #-----------------------------------------------------------------------
 
 function prepare_usr_local(){
-    sudo mkdir -p /usr/local/{bin,sbin,src,share,etc,lib,libexec,include,info,man}
-    sudo chown "$USER" /usr/local/* /usr/local
+    sudo mkdir -p "${PREFIX}"/{bin,sbin,src,share/emacs/site-lisp,etc,lib,libexec,include,info,man}
+    sudo cat>"${PREFIX}"/share/emacs/site-lisp/subdirs.el<<EOF
+;; -*- no-byte-compile: t -*-
+(if (fboundp (quote normal-top-level-add-subdirs-to-load-path))
+   (normal-top-level-add-subdirs-to-load-path))
+EOF
+    sudo chown "$USER" "${PREFIX}"/* "${PREFIX}"
 }
 
 
 function install_emacs_from_sources(){
-    if [ ! -x /usr/local/bin/emacs ] ; then
-        cd /usr/local/src
+    if [ ! -x "${PREFIX}"/bin/emacs ] ; then
+        cd "${PREFIX}"/src
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
-        local logbase;logbase="/usr/local/src/${dir}"
-        download "${url}"
-        download "${url}.sig"
-        unarchive "${tarball}"
+	if [[ ! -e "${tarball}" ]] ; then
+            download "${url}"
+            download "${url}.sig"
+	fi
+        unarchive "${tarball}" "${dir}"
         cd "${dir}"
-        printi 'Configuring emacs'
-        ./configure --prefix=/usr/local \
-		            --with-x --without-ns \
-                    > "${logbase}".configure.log      2>&1 \
-            && ( printi 'Making emacs'     ; make          > "${logbase}".make.log           2>&1 ) \
-            && ( printi 'Installing emacs' ; make install  > "${logbase}".make-install.log   2>&1 ) \
-            ||   printe 'Compiling emacs failed; check the logs.'
+        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no
     fi
 }
 
@@ -266,27 +334,26 @@ function install_ccl_from_sources(){
     sys="$(uname|tr 'A-Z' 'a-z')"
     pro="$(uname -m)"
     case "$pro" in
-    (x86_64) pro=x86 ;;
+	(x86_64) pro=x86 ;;
     esac
     version="$(svn ls http://svn.clozure.com/publicsvn/openmcl/release|sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n|tail -1)"
     dir="ccl-${version%/}"
-    cd /usr/local/src
+    cd "${PREFIX}"/src
     if [ ! -e "${dir}" ] ; then
         svn-checkout-or-warn "http://svn.clozure.com/publicsvn/openmcl/release/${version}${sys}${pro}/ccl" "${dir}"
     fi
     link "${dir}" ccl
-    cd /usr/local/bin
+    cd "${PREFIX}"/bin
     link ../src/ccl/scripts/ccl ccl32
     link ../src/ccl/scripts/ccl64 ccl64
     link ccl64 ccl
 }
 
 
-function install_ffcall_from_sources(){
-    true
-}
 
 function install_clisp_from_sources(){
+    cd "${PREFIX}"/src/
+    local do_ffi=false
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     local url='http://hg.code.sf.net/p/clisp/clisp'
     local dir='clisp'
@@ -296,84 +363,144 @@ function install_clisp_from_sources(){
         hg clone "${url}" "${dir}"
     fi
     cd "${dir}"
-    printi 'Configuring clisp'
-    ./configure \
-        --prefix=/usr/local \
-	\
-        --with-threads=POSIX_THREADS \
-	\
-	--with-libsigsegv-prefix=/opt/local/lib \
-	--with-libpth-prefix=/opt/local/lib \
-	--with-libiconv-prefix=/opt/local/lib \
-	--with-libintl-prefix=/opt/local/lib \
-	--with-libffcall-prefix=/opt/local/lib \
-	--with-libtermcap-prefix=/opt/local/lib \
-	--with-libreadline-prefix=/opt/local/lib \
-	\
-	--without-ffcall \
-	--with-dynamic-modules \
-	--with-unicode \
-	--with-readline \
-	\
-        --with-module=berkeley-db \
-        --with-module=bindings/glibc \
-        --with-module=clx/new-clx \
-        --with-module=dbus \
-        --with-module=gdbm \
-        --with-module=gtk2 \
-        --with-module=pcre \
-        --with-module=postgresql \
-        --with-module=queens \
-        --with-module=rawsock \
-        --with-module=zlib \
-	\
-        --hyperspec="${hyperspec}" \
-	\
-        build                                          > "${logbase}".configure.log      2>&1 \
-        && ( printi 'Making clisp'     ; make          > "${logbase}".make.log           2>&1 ) \
-        && ( cp build/libgnu.a  build/bindings/glibc/ ) \
-        && ( printi 'Installing clisp' ; make install  > "${logbase}".make-install.log   2>&1 ) \
-        ||   printe 'Compiling clisp failed; check the logs.'
+    make distclean >/dev/null 2>&1 || true
+    rm -rf build
+    local configuration=(
+        --prefix="${PREFIX}"
+
+        --with-threads=POSIX_THREADS
+	--with-dynamic-modules
+	--with-unicode 
+	--with-readline 
+
+        --with-module=berkeley-db
+        --with-module=clx/new-clx
+        --with-module=gdbm
+        --with-module=pcre
+        --with-module=queens
+        --with-module=rawsock
+
+	--with-libsigsegv-prefix=/opt/local/lib 
+	--with-libpth-prefix=/opt/local/lib 
+	--with-libiconv-prefix=/opt/local/lib 
+	--with-libintl-prefix=/opt/local/lib 
+	--with-libffcall-prefix=/opt/local/lib 
+	--with-libtermcap-prefix=/opt/local/lib 
+	--with-libreadline-prefix=/opt/local/lib 
+
+        --hyperspec="${hyperspec}"
+    )
+    local ffi_modules=(
+        --with-module=bindings/glibc
+        --with-module=dbus
+        --with-module=gtk2
+        --with-module=postgresql
+        --with-module=zlib
+    )
+    local linux_ffi=(
+        --with-ffcall
+    )
+    local darwin_ffi=(
+        --with-ffcall
+        --with-ffcall-prefix=/opt/local
+    )
+    if [[ "$(uname)" = Darwin ]] ; then
+        if $do_ffi false ; then
+            configuration+=( "${darwin_ffi[@]}" "${ffi_modules[@]}" )
+        fi
+    else
+        if $do_ffi false ; then
+            configuration+=( "${linux_ffi[@]}" "${ffi_modules[@]}" )
+        fi
+    fi
+    (
+        export EDITOR=emacsclient
+        export ORGANIZATION=informatimago
+        if [[ "$(uname)" = Darwin ]] ; then
+            export CPPFLAGS=-I/opt/local/include
+            export LDFLAGS=-L/opt/local/lib
+            export LIBS='/opt/local/lib/libcallback.a /opt/local/lib/libavcall.a'
+        fi
+        printi "Configuring ${dir}"
+        ./configure "${configuration[@]}" build                      > "${logbase}".configure.log      2>&1   \
+            && ( printi "Making ${dir}"     ; make -C build          > "${logbase}".make.log           2>&1 ) \
+            && ( cp build/libgnu.a  build/bindings/glibc/ ) \
+            && ( printi "Installing ${dir}" ; make -C build install  > "${logbase}".make-install.log   2>&1 ) \
+            ||   printe "Compiling ${dir} failed; check the logs."
+    )
+}
+
+
+function java_home(){
+    case "$(uname)" in
+	(Darwin) echo /usr/libexec/java_home            ;;
+	(*)      echo /usr/lib/jvm/java-7-openjdk-amd64 ;;
+    esac
 }
 
 
 function install_abcl_from_sources(){
     # Assume ccl is available.
+    cd "${PREFIX}"/src/
     local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
-    local dirname;dirname="$(basename "${tarball}" .tar.gz)"
-    local jdkhome;jdkhome="$(/usr/libexec/java_home)"
-    local logbase;logbase="/usr/local/src/${dirname}"
-    cd /usr/local/src/
-    download "${url}"
-    unarchive "${tarball}"
-    cd "${dirname}"
-    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' <customizations.lisp.in >customizations.lisp
+    local dir;dir="$(basename "${tarball}" .tar.gz)"
+    local jdkhome;jdkhome="$(java_home)"
+    local logbase;logbase="$(pwd)/${dir}"
+    export JAVA_HOME="${jdkhome}"
+    if [[ ! -e  "${tarball}" ]] ; then
+	download "${url}"
+    fi
+    unarchive "${tarball}" "${dir}"
+    cd "${dir}"
+    case "$(uname)" in
+	(Darwin)
+	    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' <customizations.lisp.in >customizations.lisp
+	    ;;
+	(*)
+	    sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' -e 's/fastjar/jar/' <customizations.lisp.in >customizations.lisp
+	    ;;
+    esac
     cat customizations.lisp
     chmod 755 ./build-from-lisp.bash
     printi 'Building abcl from lisp with ccl'
     ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1 \
-        && ( printi 'Installing abcl' ; install -m 755 abcl /usr/local/bin/  > "${logbase}".make-install.log   2>&1 ) \
+        && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe 'Compiling abcl failed; check the logs.'
 }
 
+
 function install_ecl_from_sources(){
+    cd "${PREFIX}"/src/
     local url='https://gitlab.com/embeddable-common-lisp/ecl.git'
     local dir='ecl'
-    local logbase;logbase="/usr/local/src/${dir}"
-    cd /usr/local/src/
     git-clone-or-warn "${url}"
     cd "${dir}"
-    printi 'Configuring ecl'
-    ./configure --prefix=/usr/local                  > "${logbase}".configure.log      2>&1 \
-        && ( printi 'Making ecl'     ; make          > "${logbase}".make.log           2>&1 ) \
-        && ( printi 'Installing ecl' ; make install  > "${logbase}".make-install.log   2>&1 ) \
-        ||   printe 'Compiling ecl failed; check the logs.'
+    compile "${dir}" "$(pwd)"
+}
+
+
+function install_emacs_w3m_from_sources(){
+    cd "${PREFIX}"/src
+    local url=':pserver:anonymous@cvs.namazu.org:2401/storage/cvsroot'
+    local dir='emacs-w3m'
+    if [[  -d "${dir}" ]] ; then
+        printw 'There is already an item named ' "${dir}" ','
+        printw '         skipping cvs checkout ' "${svnurl}"
+    else
+        printi 'Checking out ' "${svnurl}"
+        printf '/1 %s A\n' >> ~/.cvspass
+        sort -u -o ~/.cvspass ~/.cvspass
+        cvs -d "${url}" co "${dir}"
+    fi
+    cd "${dir}"
+    autoconf
+    compile "${dir}" "$(pwd)"
 }
 
 function install_usr_local_stuff(){
     prepare_usr_local
-    for component in emacs ccl clisp abcl ecl  ; do
+    for component in emacs ccl clisp abcl ecl emacs_w3m ; do
         "install_${component}_from_sources"
     done
 }
@@ -388,7 +515,7 @@ function install_quicklisp(){
     local file="$(basename "${url}")"
     download "${url}"
     download "${url}".asc
-    gpg --verify "${file}".asc "${file}"
+    gpg --verify "${file}".asc "${file}" || true
     printi 'Installing quicklisp'
     ccl --no-init <<EOF
 (load "quicklisp.lisp")
@@ -431,6 +558,7 @@ EOF
 
 }
 
+
 #-----------------------------------------------------------------------
 # Darwin: EmacsForMacOSX
 #-----------------------------------------------------------------------
@@ -452,6 +580,19 @@ function install_emacsformacosx(){
 	hdiutil detach "${dev}"
 	rmdir "${mnt}"
     fi
+}
+
+
+#-----------------------------------------------------------------------
+# Debian: apt
+#-----------------------------------------------------------------------
+
+function install_apt_packages(){
+    # for package in "${debian_packages[@]}" ; do
+    # 	sudo apt-get install "${package}"
+    # done
+    # --install-suggested
+    sudo apt-get install --assume-yes --fix-broken "$@"
 }
 
 
@@ -499,17 +640,25 @@ function install_ports(){
     port install xorg-libXt +flat_namespace        ; normal
 
     for port in  "${ports[@]}" ; do
-	    port install "${port}"                     ; normal
+	port install "${port}"                     ; normal
     done
 
     port uninstall inactive      # remove the inactive ports.
     port clean --all uninstalled # remove the non-installed distfiles
 
-    port select --set sphinx py27-sphinx
-    port select --set python  python33
-    port select --set python3 python33
-    port select --set pip     pip33
+    port select --set cython    cython27
+    port select --set gcc       mp-gcc6
+    port select --set llvm      mp-llvm-3.8
+    port select --set mysql     mysql57
+    port select --set nosetests nosetests27
+    port select --set pip       pip33
+    port select --set python    python33
+    port select --set python2   python27
+    port select --set python3   python33
+    port select --set sphinx    py27-sphinx
+
     normal
+
     launchctl load -w /Library/LaunchDaemons/org.freedesktop.dbus-system.plist
 }
 
@@ -525,25 +674,35 @@ function post_install_ports(){
 # Install All
 #-----------------------------------------------------------------------
 
-
-
 function install_all(){
 
-    install_pjb_environment
-    source "$HOME/.bashrc"
-
     case "$(uname)" in
-	(Darwin)
+    	(Linux)
+    	    if [ -r /etc/os-release ] ; then
+    		if grep -q -s -e '^ID=debian' /etc/os-release ; then
+    		    # Debian
+    		    install_apt_packages "${debian_packages[@]}"
+    		elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
+    		    # Debian
+    		    install_apt_packages "${ubuntu_packages[@]}"
+    		fi
+    	    fi
+    	    ;;
+    	(Darwin)
             install_emacsformacosx
-	    # install_macports
-	    export "PATH=/opt/local/bin:$PATH"
-	    # sudo "${self}" --install-ports
-	    post_install_ports
+            install_macports
+    	    export "PATH=/opt/local/bin:$PATH"
+    	    sudo "${self}" --install-ports
+    	    post_install_ports
             ;;
     esac
-
+    
+    install_pjb_environment
+    source "$HOME/.bashrc"
     install_usr_local_stuff
+    install_home_emacs
     install_quicklisp
+    printi 'Installation completed.'
 }
 
 
@@ -572,4 +731,4 @@ function main(){
 }
 
 
-# main "$@"
+main "$@"
