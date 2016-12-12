@@ -88,33 +88,31 @@ debian_packages=(
 ubuntu_packages=( "${debian_packages[@]}" )
 
 
-ports=(MPlayer abcMIDI abcm2ps ant-contrib
-       apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0 cvs
-       docbook-xsl ecl enscript fluidsynth fop gawk gcl gdb giflib
-       gnupg gnutar gradle graphviz gsed libconfig-hr libevent libiconv
-       lisp-hyperspec lynx mercurial mmv multimarkdown
-       ncftp ninja optipng pandoc pngcheck pngcrush pngpp port_cutleaves
-       portmidi pstree py-pdfrw py27-pip py27-sphinx py33-docutils
-       py33-pip ragel rlwrap rst2pdf sbcl sitecopy texlive-bibtex-extra
-       texlive-fonts-extra texlive-formats-extra texlive-games
-       texlive-htmlxml texlive-humanities texlive-lang-african
-       texlive-lang-arabic texlive-latex texlive-latex-extra
-       texlive-latex-recommended texlive-music texlive-omega
-       texlive-pstricks texlive-publishers texlive-science tiemu3
-       umbrello unrar w3m wget x11perf xauth xcalc xcb
-       xclipboard xclock xcompmgr xconsole xcursorgen xditview xdm
-       xdotool xdpyinfo xedit xev xeyes xfd xfig xfontsel xforms xfs
-       xfsinfo xgamma xgc xhost xinit xkeyboard-config xkill xload xlogo
-       xlsatoms xlsclients xlsfonts xmag xman xmessage xmh xmlto xmms2
-       xmodmap xmore xorg-scripts xpdf xpdf-cyrillic xplot xpr xprop
-       xrandr xrefresh xscope xscreensaver xsetmode xsetpointer xsetroot
-       xskat xsm xstdcmap xwd xwininfo xwud py27-readline mysql57
-       mysql57-server mysql_select
-       gcc5 gcc6 gcc_select
-       tree boehmgc ghostscript
-       fpc fpc-doc fortune xterm
-       ffcall libiconv readline
-      )
+ports=(
+    xorg-server
+    xorg-libXt+flat_namespace
+    MPlayer abcMIDI abcm2ps ant-contrib
+    apache-ant bash ccl clisp cmake coreutils docbook-xml-5.0 cvs
+    docbook-xsl ecl enscript fluidsynth fop gawk gcl gdb giflib
+    gnupg gnutar gradle graphviz gsed libconfig-hr libevent libiconv
+    lisp-hyperspec lynx mercurial mmv multimarkdown
+    ncftp ninja optipng pandoc pngcheck pngcrush pngpp port_cutleaves
+    portmidi pstree py-pdfrw py27-pip py27-sphinx py33-docutils
+    py33-pip ragel rlwrap rst2pdf sbcl sitecopy texlive+full tiemu3
+    umbrello unrar w3m wget x11perf xauth xcalc xcb
+    xclipboard xclock xcompmgr xconsole xcursorgen xditview xdm
+    xdotool xdpyinfo xedit xev xeyes xfd xfig xfontsel xforms xfs
+    xfsinfo xgamma xgc xhost xinit xkeyboard-config xkill xload xlogo
+    xlsatoms xlsclients xlsfonts xmag xman xmessage xmh xmlto xmms2
+    xmodmap xmore xorg-scripts xpdf xpdf-cyrillic xplot xpr xprop
+    xrandr xrefresh xscope xscreensaver xsetmode xsetpointer xsetroot
+    xskat xsm xstdcmap xwd xwininfo xwud py27-readline mysql57
+    mysql57-server mysql_select
+    gcc5 gcc6 gcc_select
+    tree boehmgc ghostscript
+    fpc fpc-doc fortune xterm
+    ffcall libiconv readline
+)
 
 
 ports_osx_10_11=( vineserver )
@@ -607,15 +605,22 @@ function install_macports(){
 function install_ports(){
     # run as sudo.
     export "PATH=/opt/local/bin:$PATH"
+    local words
+    local port
+    local variant
 
     port selfupdate                                ; normal
     port upgrade outdated || true                  ; normal
 
-    port install xorg-server                       ; normal
-    port install xorg-libXt +flat_namespace        ; normal
-
     for port in  "${ports[@]}" ; do
-	    port install "${port}"                     ; normal
+        if [[ "${port}" =~ (.*)([-+])(.*) ]] ; then
+            port="${BASH_REMATCH[1]}"
+            variant="${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+        else
+            variant=''
+        fi
+        port install "${port}" ${variant}
+        normal
     done
 
     port uninstall inactive      # remove the inactive ports.
