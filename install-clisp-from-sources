@@ -1,0 +1,155 @@
+#!/bin/bash
+# -*- mode:sh;coding:utf-8 -*-
+set -e
+#*****************************************************************************
+#FILE:               install_clisp_from_sources
+#LANGUAGE:           sh
+#SYSTEM:             POSIX
+#USER-INTERFACE:     NONE
+#DESCRIPTION
+#
+#    This script fetches and installs clisp.
+#    Extracted from
+#    https://gitlab.com/informatimago/install/blob/master/install-pjb-environment
+#
+#AUTHORS
+#    <PJB> Pascal J. Bourguignon <pjb@informatimago.com>
+#MODIFICATIONS
+#    2018-04-22 <PJB> Extracted clisp install function.
+#    2016-12-04 <PJB> Added this header.
+#BUGS
+#LEGAL
+#    AGPL3
+#
+#    Copyright Pascal J. Bourguignon 2016 - 2018
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#*****************************************************************************
+
+self="$(cd "$(dirname "$0")";pwd -P)/$(basename "$0")"
+PREFIX=/usr/local
+
+
+function printe(){
+    printf '%-8s: %s\n' ERROR   "$*" >&2
+}
+
+
+function printw(){
+    printf '%-8s: %s\n' WARNING "$*" >&2
+}
+
+
+function printi(){
+    printf '%-8s: %s\n' INFO    "$*" >&2
+}
+
+
+
+function prepare_prefix(){
+    mkdir -p "${PREFIX}"/{bin,sbin,src,share/emacs/site-lisp,etc,lib,libexec,include,info,man}
+}
+
+
+function install_clisp_from_sources(){
+    cd "${PREFIX}"/src/
+    local do_ffi=true
+    local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
+    # local url='http://hg.code.sf.net/p/clisp/clisp'
+    local url='git@gitlab.com:gnu-clisp/clisp.git'
+    local dir='clisp'
+    local logbase;logbase="/usr/local/src/${dir}"
+    if [ ! -e "${dir}" ] ; then
+        #hg clone "${url}" "${dir}"
+        git clone  "${url}" "${dir}"
+    fi
+    cd "${dir}"
+    make distclean >/dev/null 2>&1 || true
+    rm -rf build
+    local configuration=(
+        --prefix="${PREFIX}"
+
+        --with-threads=POSIX_THREADS
+	    --with-dynamic-modules
+	    --with-unicode
+	    --with-readline
+
+        --with-module=berkeley-db
+        --with-module=clx/new-clx
+        --with-module=gdbm
+        --with-module=pcre
+        --with-module=queens
+        --with-module=rawsock
+
+	    --with-libsigsegv-prefix=/opt/local/lib
+	    --with-libpth-prefix=/opt/local/lib
+	    --with-libiconv-prefix=/opt/local/lib
+	    --with-libintl-prefix=/opt/local/lib
+	    --with-libffcall-prefix=/opt/local/lib
+	    --with-libtermcap-prefix=/opt/local/lib
+	    --with-libreadline-prefix=/opt/local/lib
+
+        --hyperspec="${hyperspec}"
+    )
+    local ffi_modules=(
+        --with-module=bindings/glibc
+        --with-module=dbus
+        --with-module=gtk2
+        --with-module=postgresql
+        --with-module=zlib
+    )
+    local linux_ffi=(
+        --with-ffcall
+    )
+    local darwin_ffi=(
+        --with-ffcall
+        --with-ffcall-prefix=/opt/local
+    )
+    if [[ "$(uname)" = Darwin ]] ; then
+        if $do_ffi false ; then
+            configuration+=( "${darwin_ffi[@]}" "${ffi_modules[@]}" )
+        fi
+    else
+        if $do_ffi false ; then
+            configuration+=( "${linux_ffi[@]}" "${ffi_modules[@]}" )
+        fi
+    fi
+    (
+        export EDITOR=emacsclient
+        export ORGANIZATION=informatimago
+        if [[ "$(uname)" = Darwin ]] ; then
+            export CPPFLAGS=-I/opt/local/include
+            export LDFLAGS=-L/opt/local/lib
+            export LIBS='/opt/local/lib/libcallback.a /opt/local/lib/libavcall.a'
+        fi
+        printi "Configuring ${dir}"
+        ./configure "${configuration[@]}" build                      > "${logbase}".configure.log      2>&1   \
+            && ( printi "Making ${dir}"     ; make -C build          > "${logbase}".make.log           2>&1 ) \
+            && ( cp build/libgnu.a  build/bindings/glibc/ ) \
+            && ( printi "Installing ${dir}" ; make -C build install  > "${logbase}".make-install.log   2>&1 ) \
+            ||   printe "Compiling ${dir} failed; check the logs."
+    )
+}
+
+
+function main(){
+    PREFIX=/tmp/compile-clisp
+    printi "Compiling and installing clisp in ${PREFIX}"
+    prepare_prefix    
+    install_clisp_from_sources
+    exit 0
+}
+
+main "$@"
+# set +eu
