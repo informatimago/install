@@ -360,7 +360,7 @@ function install_clisp_from_sources(){
     # local url='http://hg.code.sf.net/p/clisp/clisp'
     local url='git@gitlab.com:gnu-clisp/clisp.git'
     local dir='clisp'
-    local logbase;logbase="/usr/local/src/${dir}"
+    local logbase;logbase="$(pwd)/${dir}"
     if [ ! -e "${dir}" ] ; then
         #hg clone "${url}" "${dir}"
         git clone  "${url}" "${dir}"
