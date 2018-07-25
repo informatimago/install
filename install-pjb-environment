@@ -83,6 +83,8 @@ debian_packages=(
     libdb5.3-dev libgdbm-dev libglade2-dev
     postgresql postgresql-client postgresql-doc
     postgresql-server-dev-all
+
+    xsel
 )
 
 
@@ -107,7 +109,8 @@ ports=(
     xlsatoms xlsclients xlsfonts xmag xman xmessage xmh xmlto xmms2
     xmodmap xmore xorg-scripts xpdf xpdf-cyrillic xplot xpr xprop
     xrandr xrefresh xscope xscreensaver xsetmode xsetpointer xsetroot
-    xskat xsm xstdcmap xwd xwininfo xwud py27-readline
+    xskat xsm xstdcmap xwd xwininfo xwud xsel
+    py27-readline
     mysql57 mysql57-server mysql_select
     gcc5 gcc6 gcc_select
     tree boehmgc ghostscript
@@ -171,22 +174,22 @@ function unarchive(){
     local archive="$1"
     local dir="$2"
     case "${archive}" in
-	(*.tar.bz2)
+    (*.tar.bz2)
         rm -rf  "${dir}"
-	    printi 'Extracting ' "${archive}"
+        printi 'Extracting ' "${archive}"
         tar jxf "${archive}"
         ;;
-	(*.tar.gz|*.tgz)
+    (*.tar.gz|*.tgz)
         rm -rf  "${dir}"
-	    printi 'Extracting ' "${archive}"
+        printi 'Extracting ' "${archive}"
         tar zxf "${archive}"
         ;;
-	(*.zip)
+    (*.zip)
         rm -rf  "${dir}"
-	    printi 'Extracting ' "${archive}"
+        printi 'Extracting ' "${archive}"
         unzip "${archive}"
         ;;
-	(*)
+    (*)
         printe "Unknown archive type: ${archive}"
         exit 1
         ;;
@@ -279,7 +282,7 @@ function install_pjb_environment(){
     mkdir -p src/public
     cd src/public
     for repo in "${repositories[@]}" ; do
-	    git-clone-or-warn "${repo}"
+        git-clone-or-warn "${repo}"
     done
     cd "$HOME"
     link src/public/bin bin
@@ -313,10 +316,10 @@ function install_emacs_from_sources(){
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
-	    if [[ ! -e "${tarball}" ]] ; then
+        if [[ ! -e "${tarball}" ]] ; then
             download "${url}"
             download "${url}.sig"
-	    fi
+        fi
         unarchive "${tarball}" "${dir}"
         cd "${dir}"
         compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no
@@ -332,7 +335,7 @@ function install_ccl_from_sources(){
     sys="$(uname|tr 'A-Z' 'a-z')"
     pro="$(uname -m)"
     case "$pro" in
-	(x86_64) pro=x86 ;;
+    (x86_64) pro=x86 ;;
     esac
     version="$(svn ls http://svn.clozure.com/publicsvn/openmcl/release|sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n|tail -1)"
     dir="ccl-${version%/}"
@@ -353,7 +356,9 @@ function install_clisp_from_sources(){
     cd "${PREFIX}"/src/
     local do_ffi=true
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
-    local url='http://hg.code.sf.net/p/clisp/clisp'
+    # local url='http://hg.code.sf.net/p/clisp/clisp'
+    # local url='git@gitlab.com:gnu-clisp/clisp.git'
+    local url='https://gitlab.com/gnu-clisp/clisp.git'
     local dir='clisp'
     local logbase;logbase="/usr/local/src/${dir}"
     if [ ! -e "${dir}" ] ; then
@@ -366,9 +371,9 @@ function install_clisp_from_sources(){
         --prefix="${PREFIX}"
 
         --with-threads=POSIX_THREADS
-	    --with-dynamic-modules
-	    --with-unicode
-	    --with-readline
+        --with-dynamic-modules
+        --with-unicode
+        --with-readline
 
         --with-module=berkeley-db
         --with-module=clx/new-clx
@@ -377,13 +382,13 @@ function install_clisp_from_sources(){
         --with-module=queens
         --with-module=rawsock
 
-	    --with-libsigsegv-prefix=/opt/local/lib
-	    --with-libpth-prefix=/opt/local/lib
-	    --with-libiconv-prefix=/opt/local/lib
-	    --with-libintl-prefix=/opt/local/lib
-	    --with-libffcall-prefix=/opt/local/lib
-	    --with-libtermcap-prefix=/opt/local/lib
-	    --with-libreadline-prefix=/opt/local/lib
+        --with-libsigsegv-prefix=/opt/local/lib
+        --with-libpth-prefix=/opt/local/lib
+        --with-libiconv-prefix=/opt/local/lib
+        --with-libintl-prefix=/opt/local/lib
+        --with-libffcall-prefix=/opt/local/lib
+        --with-libtermcap-prefix=/opt/local/lib
+        --with-libreadline-prefix=/opt/local/lib
 
         --hyperspec="${hyperspec}"
     )
@@ -430,8 +435,8 @@ function install_clisp_from_sources(){
 
 function java_home(){
     case "$(uname)" in
-	(Darwin) echo /usr/libexec/java_home            ;;
-	(*)      echo /usr/lib/jvm/java-7-openjdk-amd64 ;;
+    (Darwin) echo /usr/libexec/java_home            ;;
+    (*)      echo /usr/lib/jvm/java-7-openjdk-amd64 ;;
     esac
 }
 
@@ -446,20 +451,20 @@ function install_abcl_from_sources(){
     local logbase;logbase="$(pwd)/${dir}"
     export JAVA_HOME="${jdkhome}"
     if [[ ! -e  "${tarball}" ]] ; then
-	    download "${url}"
+        download "${url}"
     fi
     unarchive "${tarball}" "${dir}"
     cd "${dir}"
     case "$(uname)" in
-	(Darwin)
-	    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
+    (Darwin)
+        sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
             <customizations.lisp.in >customizations.lisp
-	    ;;
-	(*)
-	    sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
+        ;;
+    (*)
+        sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
             -e 's/fastjar/jar/' \
             <customizations.lisp.in >customizations.lisp
-	    ;;
+        ;;
     esac
     chmod 755 ./build-from-lisp.bash
     printi 'Building abcl from lisp with ccl'
@@ -569,15 +574,15 @@ function install_emacsformacosx(){
         printw 'There is already an item named ' "${dir}" ','
         printw '         skipping downloading emacsformacosx '  "${url}"
     else
-	    local dmg;dmg="$(basename "${url}")"
-	    local mnt;mnt="$(mktemp -d /tmp/mnt.XXXXXX)" || ( printe cannot make mount point ; return 1 )
-	    cd /tmp
-	    download "${url}"
-	    printi 'Installing emacsformacosx'
-	    dev="$(hdiutil attach "${dmg}" -mountpoint "${mnt}" |grep dev|tail -1|awk '{print $1}')"
-	    cp -av "${mnt}"/Emacs.app "${dir}"
-	    hdiutil detach "${dev}"
-	    rmdir "${mnt}"
+        local dmg;dmg="$(basename "${url}")"
+        local mnt;mnt="$(mktemp -d /tmp/mnt.XXXXXX)" || ( printe cannot make mount point ; return 1 )
+        cd /tmp
+        download "${url}"
+        printi 'Installing emacsformacosx'
+        dev="$(hdiutil attach "${dmg}" -mountpoint "${mnt}" |grep dev|tail -1|awk '{print $1}')"
+        cp -av "${mnt}"/Emacs.app "${dir}"
+        hdiutil detach "${dev}"
+        rmdir "${mnt}"
     fi
 }
 
@@ -588,7 +593,7 @@ function install_emacsformacosx(){
 
 function install_apt_packages(){
     # for package in "${debian_packages[@]}" ; do
-    # 	sudo apt-get install "${package}"
+    #   sudo apt-get install "${package}"
     # done
     # --install-suggested
     sudo apt-get install --assume-yes --fix-broken "$@"
@@ -605,25 +610,25 @@ function install_macports(){
         printw 'There is already an item named ' "${item}" ','
         printw '         skipping installing MacPorts.'
     else
-	    local ignore1
-	    local ignore2
-	    local version
-	    local url
-	    read ignore1 ignore2 version <<<$(distribution)
-	    case "${version}" in
-	    (16.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.12-Sierra.pkg' ;;
-	    (15.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.11-ElCapitan.pkg' ;;
-	    (14.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.10-Yosemite.pkg' ;;
-	    (13.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.9-Mavericks.pkg' ;;
-	    (*) printe 'Unexpected OSX version:' "${version}"
-		    return 1
-		    ;;
-	    esac
-	    cd /tmp
-	    local packageName="$(basename "${url}")"
-	    download "${url}"
-	    printi 'Installing' "${packageName}"
-	    sudo installer -pkg "${packageName}" -target /
+        local ignore1
+        local ignore2
+        local version
+        local url
+        read ignore1 ignore2 version <<<$(distribution)
+        case "${version}" in
+        (16.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.12-Sierra.pkg' ;;
+        (15.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.11-ElCapitan.pkg' ;;
+        (14.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.10-Yosemite.pkg' ;;
+        (13.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.9-Mavericks.pkg' ;;
+        (*) printe 'Unexpected OSX version:' "${version}"
+            return 1
+            ;;
+        esac
+        cd /tmp
+        local packageName="$(basename "${url}")"
+        download "${url}"
+        printi 'Installing' "${packageName}"
+        sudo installer -pkg "${packageName}" -target /
     fi
 }
 
@@ -684,22 +689,22 @@ function install_all(){
 
     case "$(uname)" in
     (Linux)
-    	if [ -r /etc/os-release ] ; then
-    		if grep -q -s -e '^ID=debian' /etc/os-release ; then
-    		    # Debian
-    		    install_apt_packages "${debian_packages[@]}"
-    		elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
-    		    # Debian
-    		    install_apt_packages "${ubuntu_packages[@]}"
-    		fi
-    	fi
-    	;;
+        if [ -r /etc/os-release ] ; then
+            if grep -q -s -e '^ID=debian' /etc/os-release ; then
+                # Debian
+                install_apt_packages "${debian_packages[@]}"
+            elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
+                # Debian
+                install_apt_packages "${ubuntu_packages[@]}"
+            fi
+        fi
+        ;;
     (Darwin)
         install_emacsformacosx
         install_macports
-    	export "PATH=/opt/local/bin:$PATH"
-    	sudo "${self}" --install-ports
-    	post_install_ports
+        export "PATH=/opt/local/bin:$PATH"
+        sudo "${self}" --install-ports
+        post_install_ports
         ;;
     esac
 
@@ -720,17 +725,17 @@ function usage(){
 
 function main(){
     for arg ; do
-	    case "${arg}" in
-	    (--install-ports)
-		    install_ports
-		    exit 0
-		    ;;
-	    (*)
-		    printf 'Invalid option %s\n' "${arg}"
-		    usage "$(basename "$0")"
-		    exit 1
-		    ;;
-	    esac
+        case "${arg}" in
+        (--install-ports)
+            install_ports
+            exit 0
+            ;;
+        (*)
+            printf 'Invalid option %s\n' "${arg}"
+            usage "$(basename "$0")"
+            exit 1
+            ;;
+        esac
     done
     install_all
     exit 0
