@@ -66,7 +66,7 @@ debian_packages=(
     git mercurial subversion cvs
     sitecopy w3m
     rst2pdf pandoc texlive
-    umbrello unrar
+    umbrello unrar-free
     ncftp wget
 
     autoconf
@@ -439,7 +439,7 @@ function java_home(){
 function install_abcl_from_sources(){
     # Assume ccl is available.
     cd "${PREFIX}"/src/
-    local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
+    local url='https://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
     local dir;dir="$(basename "${tarball}" .tar.gz)"
     local jdkhome;jdkhome="$(java_home)"
@@ -737,5 +737,5 @@ function main(){
 }
 
 
-main "$@"
-#set +eu
+#main "$@"
+set +eu
