@@ -1,6 +1,5 @@
 #!/bin/bash
 # -*- mode:sh;coding:utf-8 -*-
-set -e
 #*****************************************************************************
 #FILE:               install-pjb-environment
 #LANGUAGE:           sh
@@ -52,22 +51,39 @@ set -e
 self="$(cd "$(dirname "$0")";pwd -P)/$(basename "$0")"
 PREFIX=/usr/local
 
-repositories=(
-    pjb@git.informatimago.com:/srv/git/public/bin
+
+repositories_behind_proxy=(
+    https://github.com/informatimago/rc
+    https://github.com/informatimago/bin
+    https://github.com/informatimago/lisp
+    https://github.com/informatimago/emacs
+)
+repositories_thru_ssh=(
     pjb@git.informatimago.com:/srv/git/public/rc
+    pjb@git.informatimago.com:/srv/git/public/bin
     pjb@git.informatimago.com:/srv/git/public/lisp
     pjb@git.informatimago.com:/srv/git/public/emacs
 )
 
 debian_packages=(
-    mplayer2
+    gnutls-bin gnutls-doc libgnutls28-dev libgnutls30 # ubuntu 18.04
+    mailutils # for emacs
+    libavcall1 # for clisp
+
+    # The default-jdk on ubuntu is openjdk which is missing components for abcl.
+    # We need to install Oracle's jdk.
+    # default-jdk default-jdk-doc default-jdk-headless
+
+    net-tools
+    mplayer
     mmv psmisc  tree  ghostscript
-    sbcl fpc default-jdk
+    sbcl fpc
     git mercurial subversion cvs
-    sitecopy w3m
+    sitecopy
+    w3m
     rst2pdf pandoc texlive
     umbrello unrar
-    ncftp wget
+    ncftp wget curl
 
     autoconf
     x11-apps   x11-xserver-utils   x11-xfs-utils
@@ -128,20 +144,20 @@ emacs_fileurls=(
 # git repository to clone in ~/emacs
 emacs_gitrepos=(
     # https://code.google.com/p/android-emacs-toolkit/
-    git://github.com/remvee/android-mode.git
-    git://github.com/emacs-java/auto-java-complete.git
+    https://github.com/remvee/android-mode.git
+    https://github.com/emacs-java/auto-java-complete.git
     https://github.com/defunkt/coffee-mode.git
     https://github.com/szermatt/emacs-bash-completion.git
     https://github.com/larsbrinkhoff/emacs-cl.git
     https://github.com/jacobono/emacs-gradle-mode.git
     https://github.com/VincentToups/emacs-utils.git
     https://github.com/tlh/emms-info-id3v2.el.git
-    git@github.com:zenspider/enhanced-ruby-mode.git
-    git://jblevins.org/git/markdown-mode.git
+    https://github.com/zenspider/enhanced-ruby-mode.git
     https://github.com/death/naggum.git
     https://github.com/magnars/s.el.git
-    git://github.com/hayamiz/twittering-mode.git
+    https://github.com/hayamiz/twittering-mode.git
     https://github.com/capitaomorte/yasnippet.git
+    https://github.com/jrblevin/markdown-mode.git
 )
 
 
@@ -158,6 +174,22 @@ function printw(){
 function printi(){
     printf '%-8s: %s\n' INFO    "$*" >&2
 }
+
+
+if type -p ccl >/dev/null 2>&1 ; then
+    function lisp(){
+        ccl --no-init "$@"
+    }
+elif type -p clisp >/dev/null 2>&1 ; then
+    function lisp(){
+        clisp -q -ansi -norc "$@"
+    }
+else
+    printe "Missing a lisp implementation."
+    function lisp(){
+        printe "Missing a lisp implementation."
+    }
+fi
 
 
 function download(){
@@ -273,11 +305,19 @@ function normal(){
 #-----------------------------------------------------------------------
 
 function install_pjb_environment(){
+    printi "Installing PJB Environment"
     cd "$HOME"
     git config --global user.name "Pascal J. Bourguignon"
     git config --global user.email pjb@informatimago.com
     mkdir -p src/public
     cd src/public
+    if git config --global http.proxy >/dev/null 2>&1 ; then
+	    printi "Choosing repository URLs via http proxy."
+	    repositories=("${repositories_behind_proxy[@]}")
+    else
+	    printi "Choosing repository URLs thru ssh."
+	    repositories=("${repositories_thru_ssh[@]}")
+    fi
     for repo in "${repositories[@]}" ; do
 	    git-clone-or-warn "${repo}"
     done
@@ -310,16 +350,17 @@ EOF
 function install_emacs_from_sources(){
     if [ ! -x "${PREFIX}"/bin/emacs ] ; then
         cd "${PREFIX}"/src
-        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz'
+        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz' # not on ubuntu 18.04
+        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
 	    if [[ ! -e "${tarball}" ]] ; then
-            download "${url}"
+	        download "${url}"
             download "${url}.sig"
 	    fi
         unarchive "${tarball}" "${dir}"
         cd "${dir}"
-        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no
+        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-x-toolkit=no --with-gnutls=yes --without-pop --with-mailutils
     fi
 }
 
@@ -354,10 +395,12 @@ function install_clisp_from_sources(){
     local do_ffi=true
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     local url='http://hg.code.sf.net/p/clisp/clisp'
+    local url='https://github.com/clisp-lang/clisp.git'
     local dir='clisp'
     local logbase;logbase="/usr/local/src/${dir}"
     if [ ! -e "${dir}" ] ; then
-        hg clone "${url}" "${dir}"
+        # hg clone "${url}" "${dir}"
+	    git clone "${url}" "${dir}"
     fi
     cd "${dir}"
     make distclean >/dev/null 2>&1 || true
@@ -377,14 +420,6 @@ function install_clisp_from_sources(){
         --with-module=queens
         --with-module=rawsock
 
-	    --with-libsigsegv-prefix=/opt/local/lib
-	    --with-libpth-prefix=/opt/local/lib
-	    --with-libiconv-prefix=/opt/local/lib
-	    --with-libintl-prefix=/opt/local/lib
-	    --with-libffcall-prefix=/opt/local/lib
-	    --with-libtermcap-prefix=/opt/local/lib
-	    --with-libreadline-prefix=/opt/local/lib
-
         --hyperspec="${hyperspec}"
     )
     local ffi_modules=(
@@ -403,7 +438,15 @@ function install_clisp_from_sources(){
     )
     if [[ "$(uname)" = Darwin ]] ; then
         if $do_ffi false ; then
-            configuration+=( "${darwin_ffi[@]}" "${ffi_modules[@]}" )
+            configuration+=( "${darwin_ffi[@]}" "${ffi_modules[@]}"
+	                         --with-libsigsegv-prefix=/opt/local/lib
+	                         --with-libpth-prefix=/opt/local/lib
+	                         --with-libiconv-prefix=/opt/local/lib
+	                         --with-libintl-prefix=/opt/local/lib
+	                         --with-libffcall-prefix=/opt/local/lib
+	                         --with-libtermcap-prefix=/opt/local/lib
+	                         --with-libreadline-prefix=/opt/local/lib
+                           )
         fi
     else
         if $do_ffi false ; then
@@ -440,6 +483,7 @@ function install_abcl_from_sources(){
     # Assume ccl is available.
     cd "${PREFIX}"/src/
     local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
+    local url='https://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
     local dir;dir="$(basename "${tarball}" .tar.gz)"
     local jdkhome;jdkhome="$(java_home)"
@@ -450,19 +494,31 @@ function install_abcl_from_sources(){
     fi
     unarchive "${tarball}" "${dir}"
     cd "${dir}"
-    case "$(uname)" in
-	(Darwin)
-	    sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
-            <customizations.lisp.in >customizations.lisp
-	    ;;
-	(*)
-	    sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
-            -e 's/fastjar/jar/' \
-            <customizations.lisp.in >customizations.lisp
-	    ;;
-    esac
+
+    # OLD:
+    # case "$(uname)" in
+	# (Darwin)
+	#     sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
+    #         <customizations.lisp.in >customizations.lisp
+	#     ;;
+	# (*)
+	#     sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
+    #         -e 's/fastjar/jar/' \
+    #         <customizations.lisp.in >customizations.lisp
+	#     ;;
+    # esac
+
+    # NEW:
+    cat >customizations.lisp <<EOF
+(in-package "BUILD-ABCL")
+(setq *javac-options* "-g")
+(setq *jikes-options* "+D -g")
+(setq *jdk*           "/usr/")
+(setq *jar*           "jar")
+EOF
+
     chmod 755 ./build-from-lisp.bash
-    printi 'Building abcl from lisp with ccl'
+    printi "Building abcl from lisp with ccl"
     ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1 \
         && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe 'Compiling abcl failed; check the logs.'
@@ -499,7 +555,8 @@ function install_emacs_w3m_from_sources(){
 
 function install_usr_local_stuff(){
     prepare_usr_local
-    for component in emacs ccl clisp abcl ecl emacs_w3m ; do
+    for component in emacs ccl clisp abcl ecl # emacs_w3m
+    do
         "install_${component}_from_sources"
     done
 }
@@ -512,18 +569,20 @@ function install_usr_local_stuff(){
 function install_quicklisp(){
     local url="https://beta.quicklisp.org/quicklisp.lisp"
     local file="$(basename "${url}")"
-    download "${url}"
-    download "${url}".asc
-    gpg --verify "${file}".asc "${file}" || true
-    printi 'Installing quicklisp'
-    ccl --no-init <<EOF
+    if [ ! -r "$HOME/quicklisp/dists/quicklisp/distinfo.txt" ] ; then
+        download "${url}"
+        download "${url}".asc
+        gpg --verify "${file}".asc "${file}" || true
+        printi 'Installing quicklisp'
+        lisp <<EOF
 (load "quicklisp.lisp")
 (quicklisp-quickstart:install)
 (ql:quickload "quicklisp-slime-helper")
 (ccl::quit)
 EOF
-    mkdir -p quicklisp/local-systems/com
-    ln -s ../../../src/public/lisp  quicklisp/local-systems/com/informatimago
+        mkdir -p quicklisp/local-systems/com
+        ln -s ../../../src/public/lisp  quicklisp/local-systems/com/informatimago
+    fi
 }
 
 
@@ -539,12 +598,12 @@ function install_home_emacs(){
    (normal-top-level-add-subdirs-to-load-path))
 EOF
 
-    for url in "${emacs_fileurls[@]}" ; do
-        download "${url}"
-    done
-
     for url in "${emacs_gitrepos[@]}" ; do
         git-clone-or-warn "${url}"
+    done
+
+    for url in "${emacs_fileurls[@]}" ; do
+        download "${url}"
     done
 
     # cd "$HOME"
@@ -680,8 +739,9 @@ function post_install_ports(){
 # Install All
 #-----------------------------------------------------------------------
 
-function install_all(){
 
+function install_all(){
+    printi "Starting installation on $(uname)"
     case "$(uname)" in
     (Linux)
     	if [ -r /etc/os-release ] ; then
@@ -717,6 +777,20 @@ function usage(){
     printf '%s usage:\n\n\t%s [--install-ports]\n\n' "${pname}" "${pname}"
 }
 
+function prerequisites(){
+    printf "List of prerequisite components:\n"
+    printf " - %s\n" 'Oracle JDK'
+    printf "Have you installated those components? "
+    read rep
+    case "$rep" in
+    (yes|y|Y|Yes|YES|oui|o|OUI|Oui|O|ja|JA|j|J) true ;;
+    (*)
+        printf "Please install them first, and try again.\n"
+        exit 1
+        ;;
+    esac
+}
+
 
 function main(){
     for arg ; do
@@ -732,10 +806,12 @@ function main(){
 		    ;;
 	    esac
     done
+    prerequisites
     install_all
     exit 0
 }
 
 
+set -e
 main "$@"
 #set +eu
