@@ -65,7 +65,7 @@ repositories_thru_ssh=(
     pjb@git.informatimago.com:/srv/git/public/emacs
 )
 
-debian_packages=(
+apt_packages=(
     gnutls-bin gnutls-doc libgnutls28-dev libgnutls30 # ubuntu 18.04
     mailutils # for emacs
     libavcall1 # for clisp
@@ -102,7 +102,12 @@ debian_packages=(
 )
 
 
-ubuntu_packages=( "${debian_packages[@]}" )
+debian_packages=( "${apt_packages[@]}"
+		  mplayer2
+		)
+ubuntu_packages=( "${apt_packages[@]}"
+		  mplayer
+		)
 
 
 ports=(
@@ -351,6 +356,7 @@ function install_emacs_from_sources(){
     if [ ! -x "${PREFIX}"/bin/emacs ] ; then
         cd "${PREFIX}"/src
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz' # not on ubuntu 18.04
+        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.3.tar.gz'
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
@@ -394,10 +400,10 @@ function install_clisp_from_sources(){
     cd "${PREFIX}"/src/
     local do_ffi=true
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
-    local url='http://hg.code.sf.net/p/clisp/clisp'
-    local url='https://github.com/clisp-lang/clisp.git'
+    # local url='http://hg.code.sf.net/p/clisp/clisp'
+    local url='git@gitlab.com:gnu-clisp/clisp.git'
     local dir='clisp'
-    local logbase;logbase="/usr/local/src/${dir}"
+    local logbase;logbase="$(pwd)/${dir}"
     if [ ! -e "${dir}" ] ; then
         # hg clone "${url}" "${dir}"
 	    git clone "${url}" "${dir}"
@@ -814,4 +820,4 @@ function main(){
 
 set -e
 main "$@"
-#set +eu
+# set +eu
