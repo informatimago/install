@@ -388,7 +388,9 @@ function install_clisp_from_sources(){
         --with-module=pcre
         --with-module=queens
         --with-module=rawsock
-
+        --hyperspec="${hyperspec}"
+    )
+    local configuration_darwin=(
         --with-libsigsegv-prefix=/opt/local/lib
         --with-libpth-prefix=/opt/local/lib
         --with-libiconv-prefix=/opt/local/lib
@@ -396,8 +398,6 @@ function install_clisp_from_sources(){
         --with-libffcall-prefix=/opt/local/lib
         --with-libtermcap-prefix=/opt/local/lib
         --with-libreadline-prefix=/opt/local/lib
-
-        --hyperspec="${hyperspec}"
     )
     local ffi_modules=(
         --with-module=bindings/glibc
@@ -414,6 +414,7 @@ function install_clisp_from_sources(){
         --with-ffcall-prefix=/opt/local
     )
     if [[ "$(uname)" = Darwin ]] ; then
+        configuration+=( "${configuration_darwin[@]}" )
         if $do_ffi false ; then
             configuration+=( "${darwin_ffi[@]}" "${ffi_modules[@]}" )
         fi
