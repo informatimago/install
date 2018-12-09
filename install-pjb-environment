@@ -66,7 +66,7 @@ debian_packages=(
     git mercurial subversion cvs
     sitecopy w3m
     rst2pdf pandoc texlive
-    umbrello unrar
+    umbrello unrar-free
     ncftp wget
 
     autoconf
@@ -362,8 +362,8 @@ function install_clisp_from_sources(){
     local do_ffi=true
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     # local url='http://hg.code.sf.net/p/clisp/clisp'
-    # local url='git@gitlab.com:gnu-clisp/clisp.git'
-    local url='https://gitlab.com/gnu-clisp/clisp.git'
+    local url='git@gitlab.com:gnu-clisp/clisp.git'
+    # local url='http://gitlab.com/gnu-clisp/clisp.git'
     local dir='clisp'
     local logbase;logbase="/usr/local/src/${dir}"
     if [ ! -e "${dir}" ] ; then
@@ -449,7 +449,7 @@ function java_home(){
 function install_abcl_from_sources(){
     # Assume ccl is available.
     cd "${PREFIX}"/src/
-    local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
+    local url='https://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
     local dir;dir="$(basename "${tarball}" .tar.gz)"
     local jdkhome;jdkhome="$(java_home)"
@@ -750,4 +750,4 @@ function main(){
 
 
 main "$@"
-#set +eu
+set +eu
