@@ -357,8 +357,8 @@ function install_clisp_from_sources(){
     local do_ffi=true
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     # local url='http://hg.code.sf.net/p/clisp/clisp'
-    # local url='git@gitlab.com:gnu-clisp/clisp.git'
-    local url='https://gitlab.com/gnu-clisp/clisp.git'
+    local url='git@gitlab.com:gnu-clisp/clisp.git'
+    # local url='http://gitlab.com/gnu-clisp/clisp.git'
     local dir='clisp'
     local logbase;logbase="/usr/local/src/${dir}"
     if [ ! -e "${dir}" ] ; then
@@ -742,5 +742,5 @@ function main(){
 }
 
 
-#main "$@"
+main "$@"
 set +eu
