@@ -471,9 +471,11 @@ function install_abcl_from_sources(){
             <customizations.lisp.in >customizations.lisp
         ;;
     esac
-    chmod 755 ./build-from-lisp.bash
+    sed -e "s/\((progn $3 (\(.*\)))\)/(handler-case \1 (error (err) (princ err *error-output*) (terpri *error-output*) (finish-output *error-output*) (\2 1)))/g" \
+        < ./build-from-lisp.bash > ./build-from-lisp
+    chmod 755 ./build-from-lisp
     printi 'Building abcl from lisp with ccl'
-    ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1 \
+    ./build-from-lisp ccl  > "${logbase}".build-from-lisp.log      2>&1 \
         && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe 'Compiling abcl failed; check the logs.'
 }
