@@ -318,7 +318,7 @@ EOF
 function install_emacs_from_sources(){
     if [ ! -x "${PREFIX}"/bin/emacs ] ; then
         cd "${PREFIX}"/src
-        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.xz'
+        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
         if [[ ! -e "${tarball}" ]] ; then
@@ -327,7 +327,9 @@ function install_emacs_from_sources(){
         fi
         unarchive "${tarball}" "${dir}"
         cd "${dir}"
-        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no
+        # CFLAGS=-L/usr/lib/x86_64-linux-gnu \
+        # LDFLAGS=-L/usr/lib/x86_64-linux-gnu \
+        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-gnutls=no
     fi
 }
 
@@ -367,7 +369,7 @@ function install_clisp_from_sources(){
     local dir='clisp'
     local logbase;logbase="/usr/local/src/${dir}"
     if [ ! -e "${dir}" ] ; then
-        hg clone "${url}" "${dir}"
+        git clone "${url}" "${dir}"
     fi
     cd "${dir}"
     make distclean >/dev/null 2>&1 || true
@@ -747,5 +749,5 @@ function main(){
 }
 
 
-main "$@"
+#main "$@"
 set +eu
