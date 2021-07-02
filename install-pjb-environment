@@ -17,7 +17,7 @@
 #LEGAL
 #    AGPL3
 #
-#    Copyright Pascal J. Bourguignon 2016 - 2016
+#    Copyright Pascal J. Bourguignon 2016 - 2021
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as published by
@@ -59,10 +59,15 @@ repositories_behind_proxy=(
     https://github.com/informatimago/emacs
 )
 repositories_thru_ssh=(
-    pjb@git.informatimago.com:/srv/git/public/rc
-    pjb@git.informatimago.com:/srv/git/public/bin
-    pjb@git.informatimago.com:/srv/git/public/lisp
-    pjb@git.informatimago.com:/srv/git/public/emacs
+    # pjb@git.informatimago.com:/srv/git/public/rc
+    # pjb@git.informatimago.com:/srv/git/public/bin
+    # pjb@git.informatimago.com:/srv/git/public/lisp
+    # pjb@git.informatimago.com:/srv/git/public/emacs
+
+    git@github.com:informatimago/rc
+    git@github.com:informatimago/bin
+    git@github.com:informatimago/lisp
+    git@github.com:informatimago/emacs
 )
 
 apt_packages=(
@@ -75,35 +80,51 @@ apt_packages=(
     # default-jdk default-jdk-doc default-jdk-headless
 
     net-tools
-    mplayer
     mmv psmisc  tree  ghostscript
-    sbcl fpc
+
+    sbcl clisp ecl gcl chezscheme mit-scheme fpc
+    cpp gcc g++ gfortran gnat gnucobol gobjc gobjc++ cross-gcc-dev
+    clang clang-tools llvm
+    openjdk-11-jdk
+    coq ocaml swi-prolog
+    make cmake ant dwarves mandoc
+    autoconf automake
+    pcc tcc
+
     git mercurial subversion cvs
-    sitecopy
     w3m
     rst2pdf pandoc texlive
-    umbrello unrar
-    ncftp wget curl
+    umbrello
+    unrar-free
+    ncftp wget curl rsync     sitecopy
 
-    autoconf
+    csound
+
     x11-apps   x11-xserver-utils   x11-xfs-utils
-    xauth xcb xcompmgr xdm xdotool xfig xinit xmlto
+    xauth xcb xcompmgr
+    # xdm
+    xdotool xfig xinit xmlto
     xmms2 xpdf xplot xscreensaver xskat  xterm
 
-    mysql-server
+    postgresql postgresql-client postgresql-doc
+    postgresql-server-dev-all
 
     fortune-mod
 
-    libffcall1-dev libgif-dev giflib-tools libncurses5-dev libtinfo-dev
-    libreadline6-dev libsigsegv-dev
-    libdb5.3-dev libgdbm-dev libglade2-dev
-    postgresql postgresql-client postgresql-doc
-    postgresql-server-dev-all
+    rlwrap cdecl libreadline-dev
+    libffcall1-dev
+    libgif-dev giflib-tools
+    libncurses5-dev
+    libtinfo-dev
+    libsigsegv-dev
+    libdb5.3-dev
+    libgdbm-dev
+    libglade2-dev
 )
 
 
 debian_packages=( "${apt_packages[@]}"
-		  mplayer2
+		  mplayer
 		)
 ubuntu_packages=( "${apt_packages[@]}"
 		  mplayer
@@ -745,8 +766,7 @@ function post_install_ports(){
 # Install All
 #-----------------------------------------------------------------------
 
-
-function install_all(){
+function install_packages(){
     printi "Starting installation on $(uname)"
     case "$(uname)" in
     (Linux)
@@ -768,7 +788,10 @@ function install_all(){
     	post_install_ports
         ;;
     esac
+}
 
+function install_all(){
+    install_packages
     install_pjb_environment
     source "$HOME/.bashrc"
     install_usr_local_stuff
@@ -780,7 +803,7 @@ function install_all(){
 
 function usage(){
     local pname="$1"
-    printf '%s usage:\n\n\t%s [--install-ports]\n\n' "${pname}" "${pname}"
+    printf '%s usage:\n\n\t%s [--only-packages|--only-local|--install-ports]\n\n' "${pname}" "${pname}"
 }
 
 function prerequisites(){
@@ -805,6 +828,16 @@ function main(){
 		    install_ports
 		    exit 0
 		    ;;
+        (--only-packages)
+            prerequisites
+            install_packages
+            exit 0
+            ;;
+        (--only-local)
+            prerequisites
+            install_usr_local_stuff
+            exit 0
+            ;;
 	    (*)
 		    printf 'Invalid option %s\n' "${arg}"
 		    usage "$(basename "$0")"
