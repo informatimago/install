@@ -50,7 +50,7 @@
 
 self="$(cd "$(dirname "$0")";pwd -P)/$(basename "$0")"
 PREFIX=/usr/local
-
+headless=0
 
 repositories_behind_proxy=(
     https://github.com/informatimago/rc
@@ -59,10 +59,16 @@ repositories_behind_proxy=(
     https://github.com/informatimago/emacs
 )
 repositories_thru_ssh=(
-    pjb@git.informatimago.com:/srv/git/public/rc
-    pjb@git.informatimago.com:/srv/git/public/bin
-    pjb@git.informatimago.com:/srv/git/public/lisp
-    pjb@git.informatimago.com:/srv/git/public/emacs
+    # pjb@git.informatimago.com:/srv/git/public/rc
+    # pjb@git.informatimago.com:/srv/git/public/bin
+    # pjb@git.informatimago.com:/srv/git/public/lisp
+    # pjb@git.informatimago.com:/srv/git/public/emacs
+
+    git@github.com:informatimago/rc.git
+    git@github.com:informatimago/bin.git
+    git@github.com:informatimago/lisp.git
+    git@github.com:informatimago/emacs.git
+    git@github.com:informatimago/commands.git
 )
 
 apt_packages=(
@@ -75,22 +81,19 @@ apt_packages=(
     # default-jdk default-jdk-doc default-jdk-headless
 
     net-tools
-    mplayer
     mmv psmisc  tree  ghostscript
     sbcl fpc
     git mercurial subversion cvs
     sitecopy
     w3m
     rst2pdf pandoc texlive
-    umbrello unrar
+    umbrello unrar-free
     ncftp wget curl
 
-    autoconf
+    autoconf ant
     x11-apps   x11-xserver-utils   x11-xfs-utils
     xauth xcb xcompmgr xdm xdotool xfig xinit xmlto
     xmms2 xpdf xplot xscreensaver xskat  xterm
-
-    mysql-server
 
     fortune-mod
 
@@ -102,12 +105,17 @@ apt_packages=(
 )
 
 
-debian_packages=( "${apt_packages[@]}"
-		  mplayer2
-		)
-ubuntu_packages=( "${apt_packages[@]}"
-		  mplayer
-		)
+headless_debian_packages=( "${apt_packages[@]}"
+		               )
+headless_ubuntu_packages=( "${apt_packages[@]}"
+		               )
+
+local_debian_packages=( "${apt_packages[@]}"
+		                mplayer2
+		              )
+local_ubuntu_packages=( "${apt_packages[@]}"
+		                mplayer
+		              )
 
 
 ports=(
@@ -315,7 +323,7 @@ function install_pjb_environment(){
     git config --global user.name "Pascal J. Bourguignon"
     git config --global user.email pjb@informatimago.com
     mkdir -p src/public
-    cd src/public
+    cd "$HOME/src/public"
     if git config --global http.proxy >/dev/null 2>&1 ; then
 	    printi "Choosing repository URLs via http proxy."
 	    repositories=("${repositories_behind_proxy[@]}")
@@ -329,9 +337,9 @@ function install_pjb_environment(){
     cd "$HOME"
     link src/public/bin bin
     link src/public/rc  rc
-    cd rc
+    cd "$HOME/rc"
     make symlinks
-    cd "$HOME" ; source .bashrc
+    cd "$HOME" ; source .bashrc || true
     printi 'Evaluate:'
     printi 'cd $HOME ; source .bashrc'
 }
@@ -358,6 +366,7 @@ function install_emacs_from_sources(){
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz' # not on ubuntu 18.04
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.3.tar.gz'
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
+        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-27.2.tar.gz'
         local tarball;tarball="$(basename "${url}")"
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
 	    if [[ ! -e "${tarball}" ]] ; then
@@ -376,20 +385,52 @@ function install_ccl_from_sources(){
     local sys
     local pro
     local dir
+    local ker
+    local exe
     sys="$(uname|tr 'A-Z' 'a-z')"
     pro="$(uname -m)"
-    case "$pro" in
-	(x86_64) pro=x86 ;;
+    case "$sys" in
+    (linux)     exe=l ;;
+    (darwin)    exe=d ;;
+    (solaris)   exe=s ;;
+    (freebsd)   exe=f ;;
+    (win32)     exe=w ;;
     esac
-    version="$(svn ls http://svn.clozure.com/publicsvn/openmcl/release|sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n|tail -1)"
-    dir="ccl-${version%/}"
-    cd "${PREFIX}"/src
-    if [ ! -e "${dir}" ] ; then
-        svn-checkout-or-warn "http://svn.clozure.com/publicsvn/openmcl/release/${version}${sys}${pro}/ccl" "${dir}"
+    case "$pro" in
+	(x86_64) pro=x86 ; ker=x8664 ; bit=64 ;;
+	(x86)    pro=x86 ; ker=x8632 ; bit=32 ;;
+	(arm)    pro=arm ; ker=arm   ; bit=64 ;;
+    esac
+    cd "${PREFIX}/src"
+    dir=ccl-dev
+    if [ ! -d "$dir" ]  ; then
+        git clone https://github.com/Clozure/ccl.git "${dir}"
     fi
+    if [ ! -r "${sys}${pro}.tar.gz" ] ; then
+        curl -L -O "https://github.com/Clozure/ccl/releases/download/v1.12/${sys}${pro}.tar.gz"
+    fi
+    cd "${PREFIX}/src/${dir}"
+    tar xf ../${sys}${pro}.tar.gz
+    cd "${PREFIX}/src/${dir}/lisp-kernel/${sys}${ker}"
+    make clean
+    make
+    cd "${PREFIX}/src/${dir}"
+    for f in  [dlwsf]{arm,x86}cl{32,64}{,.image} ; do
+        cp "$f" "original-$f" || true
+    done
+    echo # Using "${exe}${pro}cl${bit}"
+    { echo '(ccl:rebuild-ccl :clean t)' ; echo '(ccl:quit)' ; } | ./"${exe}${pro}cl${bit}"  -n
+    /bin/ls -lt | head -n 4
+    # version="$(svn ls http://svn.clozure.com/publicsvn/openmcl/release|sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n|tail -1)"
+    # dir="ccl-${version%/}"
+    # cd "${PREFIX}"/src
+    # if [ ! -e "${dir}" ] ; then
+    #     svn-checkout-or-warn "http://svn.clozure.com/publicsvn/openmcl/release/${version}${sys}${pro}/ccl" "${dir}"
+    # fi
+    cd "${PREFIX}/src"
     link "${dir}" ccl
-    cd "${PREFIX}"/bin
-    link ../src/ccl/scripts/ccl ccl32
+    cd "${PREFIX}/bin"
+    link ../src/ccl/scripts/ccl   ccl32
     link ../src/ccl/scripts/ccl64 ccl64
     link ccl64 ccl
 }
@@ -479,8 +520,8 @@ function install_clisp_from_sources(){
 
 function java_home(){
     case "$(uname)" in
-	(Darwin) echo /usr/libexec/java_home            ;;
-	(*)      echo /usr/lib/jvm/java-7-openjdk-amd64 ;;
+	(Darwin) echo /usr/libexec/java_home             ;;
+	(*)      echo /usr/lib/jvm/java-11-openjdk-amd64 ;;
     esac
 }
 
@@ -488,8 +529,8 @@ function java_home(){
 function install_abcl_from_sources(){
     # Assume ccl is available.
     cd "${PREFIX}"/src/
-    local url='http://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
-    local url='https://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
+    local url='http://abcl.org/releases/1.8.0/abcl-src-1.8.0.tar.gz'
+    local url='https://abcl.org/releases/1.8.0/abcl-src-1.8.0.tar.gz'
     local tarball;tarball="$(basename "${url}")"
     local dir;dir="$(basename "${tarball}" .tar.gz)"
     local jdkhome;jdkhome="$(java_home)"
@@ -523,9 +564,11 @@ function install_abcl_from_sources(){
 (setq *jar*           "jar")
 EOF
 
-    chmod 755 ./build-from-lisp.bash
-    printi "Building abcl from lisp with ccl"
-    ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1 \
+    # chmod 755 ./build-from-lisp.bash
+    # printi "Building abcl from lisp with ccl"
+    # ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1 
+    printi "Building abcl with ant"
+    ant \
         && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe 'Compiling abcl failed; check the logs.'
 }
@@ -561,7 +604,7 @@ function install_emacs_w3m_from_sources(){
 
 function install_usr_local_stuff(){
     prepare_usr_local
-    for component in emacs ccl clisp abcl ecl # emacs_w3m
+    for component in emacs ccl clisp abcl ecl  # emacs_w3m
     do
         "install_${component}_from_sources"
     done
@@ -753,10 +796,18 @@ function install_all(){
     	if [ -r /etc/os-release ] ; then
     		if grep -q -s -e '^ID=debian' /etc/os-release ; then
     		    # Debian
-    		    install_apt_packages "${debian_packages[@]}"
+                if [ $headless -eq 0 ] ; then
+    		        install_apt_packages "${local_debian_packages[@]}"
+                else
+    		        install_apt_packages "${headless_debian_packages[@]}"
+                fi
     		elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
-    		    # Debian
-    		    install_apt_packages "${ubuntu_packages[@]}"
+    		    # Ubuntu
+                if [ $headless -eq 0 ] ; then
+    		        install_apt_packages "${local_ubuntu_packages[@]}"
+                else
+    		        install_apt_packages "${headless_ubuntu_packages[@]}"
+                fi
     		fi
     	fi
     	;;
@@ -780,7 +831,7 @@ function install_all(){
 
 function usage(){
     local pname="$1"
-    printf '%s usage:\n\n\t%s [--install-ports]\n\n' "${pname}" "${pname}"
+    printf '%s usage:\n\n\t%s [--headless] [--install-ports]\n\n' "${pname}" "${pname}"
 }
 
 function prerequisites(){
@@ -801,6 +852,9 @@ function prerequisites(){
 function main(){
     for arg ; do
 	    case "${arg}" in
+        (--headless)
+            headless=1
+            ;;
 	    (--install-ports)
 		    install_ports
 		    exit 0
