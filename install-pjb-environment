@@ -902,8 +902,6 @@ function main(){
         (--from-sources=*)
             name="${arg/--from-sources=/}"
             fun=install_${name}_from_sources
-            echo $fun
-            type -t "$fun"
             if [ $(type -t "$fun") = function ] ; then
                 "$fun"
                 exit 0
