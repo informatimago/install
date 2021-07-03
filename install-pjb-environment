@@ -853,7 +853,15 @@ function install_all(){
 
 function usage(){
     local pname="$1"
-    printf '%s usage:\n\n\t%s [--only-packages|--only-local|--install-ports]\n\n' "${pname}" "${pname}"
+    printf '%s usage:\n\n' "${pname}"
+    printf '    %s [option]\n\n' "${pname}"
+    printf 'option can be one of:\n'
+    printf '    --only-packages       Installs only linux packages.\n'
+    printf '    --install-ports       Installs only MacPorts packages.\n'
+    printf '    --only-local          Installs only /usr/local stuff.\n'
+    printf '    --from-sources=<name> Compiles package <name> from sources.\n'
+    printf '        package can be one of: emacs ccl clisp abcl ecl emacs_w3m\n'
+    printf '\n'
 }
 
 function prerequisites(){
@@ -891,6 +899,19 @@ function main(){
             install_usr_local_stuff
             exit 0
             ;;
+        (--from-sources=*)
+            name="${arg/--from-sources=/}"
+            fun=install_${name}_from_sources
+            echo $fun
+            type -t "$fun"
+            if [ $(type -t "$fun") = function ] ; then
+                "$fun"
+                exit 0
+            fi
+            printf 'Unknown package: %s\n' "$name"
+		    usage "$(basename "$0")"
+            exit 1
+            ;;
 	    (*)
 		    printf 'Invalid option %s\n' "${arg}"
 		    usage "$(basename "$0")"
@@ -903,7 +924,9 @@ function main(){
     exit 0
 }
 
-
+set -x
 set -e
 main "$@"
 # set +eu
+
+
