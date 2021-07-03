@@ -924,7 +924,7 @@ function main(){
     exit 0
 }
 
-set -x
+# set -x
 set -e
 main "$@"
 # set +eu
