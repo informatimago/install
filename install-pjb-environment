@@ -83,10 +83,11 @@ apt_packages=(
     net-tools
     mmv psmisc  tree  ghostscript
 
-    sbcl clisp ecl gcl chezscheme mit-scheme fpc
+
+    sbcl clisp ecl gcl cmucl-source chezscheme mit-scheme fpc
     cpp gcc g++ gfortran gnat gnucobol gobjc gobjc++ cross-gcc-dev
     clang clang-tools llvm
-    openjdk-11-jdk
+    openjdk-17-jdk
     coq ocaml swi-prolog
     make cmake ant dwarves mandoc
     autoconf automake
