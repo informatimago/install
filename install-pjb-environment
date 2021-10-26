@@ -1,5 +1,5 @@
 #!/bin/bash
-# -*- mode:sh;coding:utf-8 -*-
+# -*- mode:shell-script;coding:utf-8 -*-
 #*****************************************************************************
 #FILE:               install-pjb-environment
 #LANGUAGE:           sh
@@ -114,7 +114,6 @@ apt_packages=(
 
     fortune-mod
 
-<<<<<<< HEAD
     rlwrap cdecl libreadline-dev
     libffcall1-dev
     libgif-dev giflib-tools
@@ -124,7 +123,7 @@ apt_packages=(
     libdb5.3-dev
     libgdbm-dev
     libglade2-dev
-=======
+
     libffcall1-dev libgif-dev giflib-tools libncurses5-dev libtinfo-dev
     libreadline6-dev libsigsegv-dev
     libdb5.3-dev libgdbm-dev libglade2-dev
@@ -132,7 +131,9 @@ apt_packages=(
     postgresql-server-dev-all
 
     xsel
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
+
+    pulseaudio alsamixer
+    dnsutils locate
 )
 
 
@@ -226,6 +227,7 @@ if type -p ccl >/dev/null 2>&1 ; then
         ccl --no-init "$@"
     }
 elif type -p clisp >/dev/null 2>&1 ; then
+	# shellcheck disable=SC2120
     function lisp(){
         clisp -q -ansi -norc "$@"
     }
@@ -238,7 +240,7 @@ fi
 
 
 function download(){
-    local url="${1?Missing URL as first argument of ${FUNCNAME}}"
+    local url="${1?Missing URL as first argument of ${FUNCNAME[0]}}"
     printi 'Downloading ' "${url}"
     curl -O "${url}"
 }
@@ -277,7 +279,7 @@ function unarchive(){
 
 
 function svn-checkout-or-warn(){
-    local svnurl="${1?Missing SVN repository URL as first argument to ${FUNCNAME}}"
+    local svnurl="${1?Missing SVN repository URL as first argument to ${FUNCNAME[0]}}"
     local dir="${2:-$(basename "${svnurl}" .svn)}"
     if [ -e "$dir" ] ; then
         printw 'There is already an item named ' "${dir}" ','
@@ -290,7 +292,7 @@ function svn-checkout-or-warn(){
 
 
 function git-clone-or-warn(){
-    local giturl="${1?Missing GIT repository URL as first argument to ${FUNCNAME}}"
+    local giturl="${1?Missing GIT repository URL as first argument to ${FUNCNAME[0]}}"
     local dir="${2:-$(basename "${giturl}" .git)}"
     if [ -e "$dir" ] ; then
         printw 'There is already an item named ' "${dir}" ','
@@ -303,7 +305,7 @@ function git-clone-or-warn(){
 
 
 function old(){
-    local path="${1?Missing path as first argument of ${FUNCNAME}}"
+    local path="${1?Missing path as first argument of ${FUNCNAME[0]}}"
     if [ -e "${path}.old" ] ; then
         local i=0
         while  [ -e "${path}.${i}.old" ] ; do
@@ -317,8 +319,8 @@ function old(){
 
 
 function link(){
-    local src="${1?Missing source as first argument of ${FUNCNAME}}"
-    local dst="${2?Missing destination as second argument of ${FUNCNAME}}"
+    local src="${1?Missing source as first argument of ${FUNCNAME[0]}}"
+    local dst="${2?Missing destination as second argument of ${FUNCNAME[0]}}"
     if [ -L "${dst}" ] ; then
         rm "${dst}"
     elif [[ -e "${dst}" ]]; then
@@ -332,16 +334,25 @@ function compile(){
     local name="$1" ; shift
     local logbase="$1" ; shift
     printi "Configuring ${name}"
-    ./configure --prefix="${PREFIX}" "$@"                > "${logbase}".configure.log      2>&1   \
-        && ( printi "Making ${name}"     ; make          > "${logbase}".make.log           2>&1 ) \
-        && ( printi "Installing ${name}" ; make install  > "${logbase}".make-install.log   2>&1 ) \
-        ||   printe "Compiling ${name} failed; check the logs."
+    if ./configure --prefix="${PREFIX}" "$@"        > "${logbase}".configure.log      2>&1
+	then
+        printi "Making ${name}"     ; make          > "${logbase}".make.log           2>&1 
+	    printi "Installing ${name}" ; make install  > "${logbase}".make-install.log   2>&1 
+    else
+        printe "Compiling ${name} failed; check the logs."
+    fi
 }
 
 
 function SGR () {
     # SELECT GRAPHIC RENDITION
-    echo -n "[$(semicolon='';res='';for arg in $@;do res=${res}${semicolon}${arg};semicolon=';';done;echo -n ${res})m"
+	local semicolon=''
+	local res=''
+	for arg in "$@" ; do 
+		res="${res}${semicolon}${arg}"
+		semicolon=';'
+	done
+    echo -n "[${res}m"
 }
 
 
@@ -376,8 +387,11 @@ function install_pjb_environment(){
     link src/public/rc  rc
     cd "$HOME/rc"
     make symlinks
-    cd "$HOME" ; source .bashrc || true
+    cd "$HOME"
+	# shellcheck disable=SC1090
+	source "$HOME"/.bashrc || true
     printi 'Evaluate:'
+	# shellcheck disable=SC2016
     printi 'cd $HOME ; source .bashrc'
 }
 
@@ -388,7 +402,7 @@ function install_pjb_environment(){
 
 function prepare_usr_local(){
     sudo mkdir -p "${PREFIX}"/{bin,sbin,src,share/emacs/site-lisp,etc,lib,libexec,include,info,man}
-    sudo cat>"${PREFIX}"/share/emacs/site-lisp/subdirs.el<<EOF
+    sudo tee "${PREFIX}"/share/emacs/site-lisp/subdirs.el >/dev/null <<EOF
 ;; -*- no-byte-compile: t -*-
 (if (fboundp (quote normal-top-level-add-subdirs-to-load-path))
    (normal-top-level-add-subdirs-to-load-path))
@@ -400,7 +414,6 @@ EOF
 function install_emacs_from_sources(){
     if [ ! -x "${PREFIX}"/bin/emacs ] ; then
         cd "${PREFIX}"/src
-<<<<<<< HEAD
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz' # not on ubuntu 18.04
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.3.tar.gz'
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
@@ -409,24 +422,13 @@ function install_emacs_from_sources(){
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
 	    if [[ ! -e "${tarball}" ]] ; then
 	        download "${url}"
-=======
-        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
-        local tarball;tarball="$(basename "${url}")"
-        local dir    ;dir="$(basename "${tarball}" .tar.gz)"
-        if [[ ! -e "${tarball}" ]] ; then
-            download "${url}"
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
             download "${url}.sig"
         fi
         unarchive "${tarball}" "${dir}"
         cd "${dir}"
-<<<<<<< HEAD
-        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-x-toolkit=no --with-gnutls=yes --without-pop --with-mailutils
-=======
         # CFLAGS=-L/usr/lib/x86_64-linux-gnu \
         # LDFLAGS=-L/usr/lib/x86_64-linux-gnu \
-        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-gnutls=no
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
+        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-x-toolkit=no --with-gnutls=yes --without-pop --with-mailutils
     fi
 }
 
@@ -438,6 +440,7 @@ function install_ccl_from_sources(){
     local dir
     local ker
     local exe
+	# shellcheck disable=SC2019,SC2018
     sys="$(uname|tr 'A-Z' 'a-z')"
     pro="$(uname -m)"
     case "$sys" in
@@ -448,13 +451,9 @@ function install_ccl_from_sources(){
     (win32)     exe=w ;;
     esac
     case "$pro" in
-<<<<<<< HEAD
 	(x86_64) pro=x86 ; ker=x8664 ; bit=64 ;;
 	(x86)    pro=x86 ; ker=x8632 ; bit=32 ;;
 	(arm)    pro=arm ; ker=arm   ; bit=64 ;;
-=======
-    (x86_64) pro=x86 ;;
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     esac
     cd "${PREFIX}/src"
     dir=ccl-dev
@@ -465,7 +464,7 @@ function install_ccl_from_sources(){
         curl -L -O "https://github.com/Clozure/ccl/releases/download/v1.12/${sys}${pro}.tar.gz"
     fi
     cd "${PREFIX}/src/${dir}"
-    tar xf ../${sys}${pro}.tar.gz
+    tar xf "../${sys}${pro}.tar.gz"
     cd "${PREFIX}/src/${dir}/lisp-kernel/${sys}${ker}"
     make clean
     make
@@ -492,25 +491,19 @@ function install_ccl_from_sources(){
 
 
 
+# shellcheck disable=SC2191
 function install_clisp_from_sources(){
     cd "${PREFIX}"/src/
     local do_ffi=true
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     # local url='http://hg.code.sf.net/p/clisp/clisp'
     local url='git@gitlab.com:gnu-clisp/clisp.git'
-<<<<<<< HEAD
-=======
     # local url='http://gitlab.com/gnu-clisp/clisp.git'
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     local dir='clisp'
     local logbase;logbase="$(pwd)/${dir}"
     if [ ! -e "${dir}" ] ; then
-<<<<<<< HEAD
         # hg clone "${url}" "${dir}"
 	    git clone "${url}" "${dir}"
-=======
-        git clone "${url}" "${dir}"
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     fi
     cd "${dir}"
     make distclean >/dev/null 2>&1 || true
@@ -529,10 +522,7 @@ function install_clisp_from_sources(){
         --with-module=pcre
         --with-module=queens
         --with-module=rawsock
-<<<<<<< HEAD
 
-=======
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
         --hyperspec="${hyperspec}"
     )
     local configuration_darwin=(
@@ -585,6 +575,7 @@ function install_clisp_from_sources(){
             export LIBS='/opt/local/lib/libcallback.a /opt/local/lib/libavcall.a'
         fi
         printi "Configuring ${dir}"
+		# shellcheck disable=SC2015
         ./configure "${configuration[@]}" build                      > "${logbase}".configure.log      2>&1   \
             && ( printi "Making ${dir}"     ; make -C build          > "${logbase}".make.log           2>&1 ) \
             && ( cp build/libgnu.a  build/bindings/glibc/ ) \
@@ -596,13 +587,8 @@ function install_clisp_from_sources(){
 
 function java_home(){
     case "$(uname)" in
-<<<<<<< HEAD
 	(Darwin) echo /usr/libexec/java_home             ;;
 	(*)      echo /usr/lib/jvm/java-11-openjdk-amd64 ;;
-=======
-    (Darwin) echo /usr/libexec/java_home            ;;
-    (*)      echo /usr/lib/jvm/java-7-openjdk-amd64 ;;
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     esac
 }
 
@@ -610,12 +596,7 @@ function java_home(){
 function install_abcl_from_sources(){
     # Assume ccl is available.
     cd "${PREFIX}"/src/
-<<<<<<< HEAD
-    local url='http://abcl.org/releases/1.8.0/abcl-src-1.8.0.tar.gz'
     local url='https://abcl.org/releases/1.8.0/abcl-src-1.8.0.tar.gz'
-=======
-    local url='https://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     local tarball;tarball="$(basename "${url}")"
     local dir;dir="$(basename "${tarball}" .tar.gz)"
     local jdkhome;jdkhome="$(java_home)"
@@ -626,36 +607,7 @@ function install_abcl_from_sources(){
     fi
     unarchive "${tarball}" "${dir}"
     cd "${dir}"
-<<<<<<< HEAD
 
-    # OLD:
-    # case "$(uname)" in
-	# (Darwin)
-	#     sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
-    #         <customizations.lisp.in >customizations.lisp
-	#     ;;
-	# (*)
-	#     sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
-    #         -e 's/fastjar/jar/' \
-    #         <customizations.lisp.in >customizations.lisp
-	#     ;;
-    # esac
-
-    # NEW:
-    cat >customizations.lisp <<EOF
-(in-package "BUILD-ABCL")
-(setq *javac-options* "-g")
-(setq *jikes-options* "+D -g")
-(setq *jdk*           "/usr/")
-(setq *jar*           "jar")
-EOF
-
-    # chmod 755 ./build-from-lisp.bash
-    # printi "Building abcl from lisp with ccl"
-    # ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1
-    printi "Building abcl with ant"
-    ant \
-=======
     case "$(uname)" in
     (Darwin)
         sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
@@ -672,7 +624,6 @@ EOF
     chmod 755 ./build-from-lisp
     printi 'Building abcl from lisp with ccl'
     ./build-from-lisp ccl  > "${logbase}".build-from-lisp.log      2>&1 \
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
         && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe 'Compiling abcl failed; check the logs.'
 }
@@ -697,7 +648,7 @@ function install_emacs_w3m_from_sources(){
         printw '         skipping cvs checkout ' "${svnurl}"
     else
         printi 'Checking out ' "${svnurl}"
-        printf '/1 %s A\n' >> ~/.cvspass
+        printf '/1 %s A\n' "${svnurl}" >> ~/.cvspass
         sort -u -o ~/.cvspass ~/.cvspass
         cvs -d "${url}" co "${dir}"
     fi
@@ -721,12 +672,14 @@ function install_usr_local_stuff(){
 
 function install_quicklisp(){
     local url="https://beta.quicklisp.org/quicklisp.lisp"
-    local file="$(basename "${url}")"
+	local file
+    file="$(basename "${url}")"
     if [ ! -r "$HOME/quicklisp/dists/quicklisp/distinfo.txt" ] ; then
         download "${url}"
         download "${url}".asc
         gpg --verify "${file}".asc "${file}" || true
         printi 'Installing quicklisp'
+		# shellcheck disable=SC2119
         lisp <<EOF
 (load "quicklisp.lisp")
 (quicklisp-quickstart:install)
@@ -817,25 +770,27 @@ function install_macports(){
         printw 'There is already an item named ' "${item}" ','
         printw '         skipping installing MacPorts.'
     else
-        local ignore1
-        local ignore2
-        local version
-        local url
-        read ignore1 ignore2 version <<<$(distribution)
-        case "${version}" in
-        (16.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.12-Sierra.pkg' ;;
-        (15.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.11-ElCapitan.pkg' ;;
-        (14.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.10-Yosemite.pkg' ;;
-        (13.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.9-Mavericks.pkg' ;;
-        (*) printe 'Unexpected OSX version:' "${version}"
-            return 1
-            ;;
-        esac
-        cd /tmp
-        local packageName="$(basename "${url}")"
-        download "${url}"
-        printi 'Installing' "${packageName}"
-        sudo installer -pkg "${packageName}" -target /
+ 	    local ignore1
+	    local ignore2
+	    local version
+	    local url
+		# shellcheck disable=SC2162,SC2034
+	    read ignore1 ignore2 version <<<"$(distribution)"
+	    case "${version}" in
+	    (16.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.12-Sierra.pkg' ;;
+	    (15.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.11-ElCapitan.pkg' ;;
+	    (14.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.10-Yosemite.pkg' ;;
+	    (13.*)  url='https://distfiles.macports.org/MacPorts/MacPorts-2.3.4-10.9-Mavericks.pkg' ;;
+	    (*) printe 'Unexpected OSX version:' "${version}"
+		    return 1
+		    ;;
+	    esac
+	    cd /tmp
+		local packageName
+	    packageName="$(basename "${url}")"
+	    download "${url}"
+	    printi 'Installing' "${packageName}"
+	    sudo installer -pkg "${packageName}" -target /
     fi
 }
 
@@ -843,7 +798,6 @@ function install_macports(){
 function install_ports(){
     # run as sudo.
     export "PATH=/opt/local/bin:$PATH"
-    local words
     local port
     local variant
 
@@ -896,7 +850,6 @@ function install_packages(){
     printi "Starting installation on $(uname)"
     case "$(uname)" in
     (Linux)
-<<<<<<< HEAD
     	if [ -r /etc/os-release ] ; then
     		if grep -q -s -e '^ID=debian' /etc/os-release ; then
     		    # Debian
@@ -915,18 +868,6 @@ function install_packages(){
     		fi
     	fi
     	;;
-=======
-        if [ -r /etc/os-release ] ; then
-            if grep -q -s -e '^ID=debian' /etc/os-release ; then
-                # Debian
-                install_apt_packages "${debian_packages[@]}"
-            elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
-                # Debian
-                install_apt_packages "${ubuntu_packages[@]}"
-            fi
-        fi
-        ;;
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     (Darwin)
         install_emacsformacosx
         install_macports
@@ -940,6 +881,7 @@ function install_packages(){
 function install_all(){
     install_packages
     install_pjb_environment
+	# shellcheck disable=SC1090
     source "$HOME/.bashrc"
     install_usr_local_stuff
     install_home_emacs
@@ -962,14 +904,14 @@ function usage(){
 }
 
 function prerequisites(){
-    printf "List of prerequisite components:\n"
-    printf " - %s\n" 'Oracle JDK'
-    printf "Have you installated those components? "
-    read rep
+    printf 'List of prerequisite components:\n'
+    printf ' - %s\n' 'Oracle JDK'
+    printf 'Have you installated those components? '
+    read -r rep
     case "$rep" in
     (yes|y|Y|Yes|YES|oui|o|OUI|Oui|O|ja|JA|j|J) true ;;
     (*)
-        printf "Please install them first, and try again.\n"
+        printf 'Please install them first, and try again.\n'
         exit 1
         ;;
     esac
@@ -978,7 +920,6 @@ function prerequisites(){
 
 function main(){
     for arg ; do
-<<<<<<< HEAD
 	    case "${arg}" in
         (--headless)
             headless=1
@@ -1000,7 +941,7 @@ function main(){
         (--from-sources=*)
             name="${arg/--from-sources=/}"
             fun=install_${name}_from_sources
-            if [ $(type -t "$fun") = function ] ; then
+            if [ "$(type -t "$fun")" = function ] ; then
                 "$fun"
                 exit 0
             fi
@@ -1014,34 +955,13 @@ function main(){
 		    exit 1
 		    ;;
 	    esac
-=======
-        case "${arg}" in
-        (--install-ports)
-            install_ports
-            exit 0
-            ;;
-        (*)
-            printf 'Invalid option %s\n' "${arg}"
-            usage "$(basename "$0")"
-            exit 1
-            ;;
-        esac
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     done
     prerequisites
     install_all
     exit 0
 }
 
-<<<<<<< HEAD
 # set -x
 set -e
 main "$@"
 # set +eu
-
-
-=======
-
-#main "$@"
-set +eu
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
