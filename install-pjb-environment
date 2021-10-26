@@ -14,6 +14,7 @@
 #MODIFICATIONS
 #    2016-12-04 <PJB> Added this header.
 #BUGS
+#    - Add installation of quicklisp
 #LEGAL
 #    AGPL3
 #
@@ -71,6 +72,10 @@ repositories_thru_ssh=(
     git@github.com:informatimago/commands.git
 )
 
+apt_package_not_on_debian_11=(
+    gnucobol
+)
+
 apt_packages=(
     gnutls-bin gnutls-doc libgnutls28-dev libgnutls30 # ubuntu 18.04
     mailutils # for emacs
@@ -80,12 +85,12 @@ apt_packages=(
     # We need to install Oracle's jdk.
     # default-jdk default-jdk-doc default-jdk-headless
 
-    net-tools
+    net-tools etherwake wakeonlan
     mmv psmisc  tree  ghostscript
 
 
     sbcl clisp ecl gcl cmucl-source chezscheme mit-scheme fpc
-    cpp gcc g++ gfortran gnat gnucobol gobjc gobjc++ cross-gcc-dev
+    cpp gcc g++ gfortran gnat  gobjc gobjc++ cross-gcc-dev
     clang clang-tools llvm
     openjdk-17-jdk
     coq ocaml swi-prolog
@@ -93,6 +98,8 @@ apt_packages=(
     autoconf automake
     pcc tcc
 
+    strace xtrace dnstracer
+    
     git mercurial subversion cvs
     w3m
     rst2pdf pandoc texlive
@@ -114,7 +121,6 @@ apt_packages=(
 
     fortune-mod
 
-<<<<<<< HEAD
     rlwrap cdecl libreadline-dev
     libffcall1-dev
     libgif-dev giflib-tools
@@ -124,15 +130,10 @@ apt_packages=(
     libdb5.3-dev
     libgdbm-dev
     libglade2-dev
-=======
-    libffcall1-dev libgif-dev giflib-tools libncurses5-dev libtinfo-dev
-    libreadline6-dev libsigsegv-dev
-    libdb5.3-dev libgdbm-dev libglade2-dev
     postgresql postgresql-client postgresql-doc
     postgresql-server-dev-all
 
     xsel
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
 )
 
 
@@ -388,7 +389,7 @@ function install_pjb_environment(){
 
 function prepare_usr_local(){
     sudo mkdir -p "${PREFIX}"/{bin,sbin,src,share/emacs/site-lisp,etc,lib,libexec,include,info,man}
-    sudo cat>"${PREFIX}"/share/emacs/site-lisp/subdirs.el<<EOF
+    sudo tee "${PREFIX}"/share/emacs/site-lisp/subdirs.el <<EOF
 ;; -*- no-byte-compile: t -*-
 (if (fboundp (quote normal-top-level-add-subdirs-to-load-path))
    (normal-top-level-add-subdirs-to-load-path))
@@ -400,7 +401,6 @@ EOF
 function install_emacs_from_sources(){
     if [ ! -x "${PREFIX}"/bin/emacs ] ; then
         cd "${PREFIX}"/src
-<<<<<<< HEAD
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.1.tar.gz' # not on ubuntu 18.04
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-25.3.tar.gz'
         local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
@@ -409,24 +409,14 @@ function install_emacs_from_sources(){
         local dir    ;dir="$(basename "${tarball}" .tar.gz)"
 	    if [[ ! -e "${tarball}" ]] ; then
 	        download "${url}"
-=======
-        local url='ftp://ftp.gnu.org/gnu/emacs/emacs-26.1.tar.gz'
-        local tarball;tarball="$(basename "${url}")"
-        local dir    ;dir="$(basename "${tarball}" .tar.gz)"
-        if [[ ! -e "${tarball}" ]] ; then
-            download "${url}"
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
             download "${url}.sig"
         fi
         unarchive "${tarball}" "${dir}"
         cd "${dir}"
-<<<<<<< HEAD
-        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-x-toolkit=no --with-gnutls=yes --without-pop --with-mailutils
-=======
         # CFLAGS=-L/usr/lib/x86_64-linux-gnu \
         # LDFLAGS=-L/usr/lib/x86_64-linux-gnu \
-        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-gnutls=no
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
+        #
+        compile "${dir}" "$(pwd)" --with-x --without-ns --with-gif=no --with-x-toolkit=no --with-gnutls=yes --without-pop --with-mailutils
     fi
 }
 
@@ -448,13 +438,9 @@ function install_ccl_from_sources(){
     (win32)     exe=w ;;
     esac
     case "$pro" in
-<<<<<<< HEAD
 	(x86_64) pro=x86 ; ker=x8664 ; bit=64 ;;
 	(x86)    pro=x86 ; ker=x8632 ; bit=32 ;;
 	(arm)    pro=arm ; ker=arm   ; bit=64 ;;
-=======
-    (x86_64) pro=x86 ;;
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     esac
     cd "${PREFIX}/src"
     dir=ccl-dev
@@ -498,19 +484,11 @@ function install_clisp_from_sources(){
     local hyperspec='http://www.lispworks.com/documentation/HyperSpec/'
     # local url='http://hg.code.sf.net/p/clisp/clisp'
     local url='git@gitlab.com:gnu-clisp/clisp.git'
-<<<<<<< HEAD
-=======
-    # local url='http://gitlab.com/gnu-clisp/clisp.git'
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     local dir='clisp'
     local logbase;logbase="$(pwd)/${dir}"
     if [ ! -e "${dir}" ] ; then
-<<<<<<< HEAD
         # hg clone "${url}" "${dir}"
 	    git clone "${url}" "${dir}"
-=======
-        git clone "${url}" "${dir}"
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     fi
     cd "${dir}"
     make distclean >/dev/null 2>&1 || true
@@ -529,10 +507,7 @@ function install_clisp_from_sources(){
         --with-module=pcre
         --with-module=queens
         --with-module=rawsock
-<<<<<<< HEAD
 
-=======
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
         --hyperspec="${hyperspec}"
     )
     local configuration_darwin=(
@@ -596,13 +571,8 @@ function install_clisp_from_sources(){
 
 function java_home(){
     case "$(uname)" in
-<<<<<<< HEAD
 	(Darwin) echo /usr/libexec/java_home             ;;
-	(*)      echo /usr/lib/jvm/java-11-openjdk-amd64 ;;
-=======
-    (Darwin) echo /usr/libexec/java_home            ;;
-    (*)      echo /usr/lib/jvm/java-7-openjdk-amd64 ;;
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
+	(*)      echo /usr/lib/jvm/java-17-openjdk-amd64 ;;
     esac
 }
 
@@ -610,12 +580,8 @@ function java_home(){
 function install_abcl_from_sources(){
     # Assume ccl is available.
     cd "${PREFIX}"/src/
-<<<<<<< HEAD
     local url='http://abcl.org/releases/1.8.0/abcl-src-1.8.0.tar.gz'
     local url='https://abcl.org/releases/1.8.0/abcl-src-1.8.0.tar.gz'
-=======
-    local url='https://abcl.org/releases/1.4.0/abcl-src-1.4.0.tar.gz'
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     local tarball;tarball="$(basename "${url}")"
     local dir;dir="$(basename "${tarball}" .tar.gz)"
     local jdkhome;jdkhome="$(java_home)"
@@ -626,22 +592,6 @@ function install_abcl_from_sources(){
     fi
     unarchive "${tarball}" "${dir}"
     cd "${dir}"
-<<<<<<< HEAD
-
-    # OLD:
-    # case "$(uname)" in
-	# (Darwin)
-	#     sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
-    #         <customizations.lisp.in >customizations.lisp
-	#     ;;
-	# (*)
-	#     sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
-    #         -e 's/fastjar/jar/' \
-    #         <customizations.lisp.in >customizations.lisp
-	#     ;;
-    # esac
-
-    # NEW:
     cat >customizations.lisp <<EOF
 (in-package "BUILD-ABCL")
 (setq *javac-options* "-g")
@@ -655,24 +605,6 @@ EOF
     # ./build-from-lisp.bash ccl  > "${logbase}".build-from-lisp.log      2>&1
     printi "Building abcl with ant"
     ant \
-=======
-    case "$(uname)" in
-    (Darwin)
-        sed -e 's^"/usr/"^"'"${jdkhome}/"'"^' \
-            <customizations.lisp.in >customizations.lisp
-        ;;
-    (*)
-        sed -e 's^"/home/peter/sun/jdk1.5.0_16/"^"'"${jdkhome}/"'"^' \
-            -e 's/fastjar/jar/' \
-            <customizations.lisp.in >customizations.lisp
-        ;;
-    esac
-    sed -e "s/\((progn $3 (\(.*\)))\)/(handler-case \1 (error (err) (princ err *error-output*) (terpri *error-output*) (finish-output *error-output*) (\2 1)))/g" \
-        < ./build-from-lisp.bash > ./build-from-lisp
-    chmod 755 ./build-from-lisp
-    printi 'Building abcl from lisp with ccl'
-    ./build-from-lisp ccl  > "${logbase}".build-from-lisp.log      2>&1 \
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
         && ( printi 'Installing abcl' ; install -m 755 abcl "${PREFIX}"/bin/  > "${logbase}".make-install.log   2>&1 ) \
         ||   printe 'Compiling abcl failed; check the logs.'
 }
@@ -896,7 +828,6 @@ function install_packages(){
     printi "Starting installation on $(uname)"
     case "$(uname)" in
     (Linux)
-<<<<<<< HEAD
     	if [ -r /etc/os-release ] ; then
     		if grep -q -s -e '^ID=debian' /etc/os-release ; then
     		    # Debian
@@ -915,18 +846,6 @@ function install_packages(){
     		fi
     	fi
     	;;
-=======
-        if [ -r /etc/os-release ] ; then
-            if grep -q -s -e '^ID=debian' /etc/os-release ; then
-                # Debian
-                install_apt_packages "${debian_packages[@]}"
-            elif grep -q -s -e '^ID=ubuntu' /etc/os-release ; then
-                # Debian
-                install_apt_packages "${ubuntu_packages[@]}"
-            fi
-        fi
-        ;;
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     (Darwin)
         install_emacsformacosx
         install_macports
@@ -978,7 +897,6 @@ function prerequisites(){
 
 function main(){
     for arg ; do
-<<<<<<< HEAD
 	    case "${arg}" in
         (--headless)
             headless=1
@@ -1014,34 +932,12 @@ function main(){
 		    exit 1
 		    ;;
 	    esac
-=======
-        case "${arg}" in
-        (--install-ports)
-            install_ports
-            exit 0
-            ;;
-        (*)
-            printf 'Invalid option %s\n' "${arg}"
-            usage "$(basename "$0")"
-            exit 1
-            ;;
-        esac
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
     done
     prerequisites
     install_all
     exit 0
 }
 
-<<<<<<< HEAD
 # set -x
 set -e
 main "$@"
-# set +eu
-
-
-=======
-
-#main "$@"
-set +eu
->>>>>>> c4490594a8409e9f8adb6b5abcd3d00ee24ce251
