@@ -49,7 +49,7 @@
 #
 # - install https://developer.android.com/studio/index.html
 
-self="$(cd "$(dirname "$0")";pwd -P)/$(basename "$0" .bash)"
+self="$(cd "$(dirname "${BASH_SOURCE[0]}")"||exit 1;pwd -P)/$(basename "${BASH_SOURCE[0]}" .bash)"
 PREFIX=/usr/local
 headless=0
 
